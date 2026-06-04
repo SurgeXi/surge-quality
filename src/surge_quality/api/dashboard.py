@@ -118,6 +118,60 @@ class LowScoreRow:
     snippet: str
 
 
+# --- Phase B panels ---------------------------------------------------------
+# Locked design: see project_pulsepoint_design_decisions §Sequencing →
+# Phase B. While Phase B is live, Claude continues to serve customers
+# and Surge generates parallel "shadow" responses that we score but do
+# not deliver. These dataclasses are the JSON-friendly payload for the
+# Phase B-specific panels rendered alongside (not in place of) the
+# existing daily/topic/low-score charts:
+#
+#   shadow_trend           — Surge's average rubric composite per day
+#                             across shadow rows (the "is Surge getting
+#                             better?" line). Filtered to
+#                             source='shadow-phase-b'.
+#   shadow_topic_breakdown — same topic histogram as before but scoped
+#                             to shadow rows only — answers "where is
+#                             shadow Surge doing well vs needs work?"
+#   shadow_corpus_summary  — acceptance corpus size (high-score shadow
+#                             rows where the Claude reviewer did NOT
+#                             fire) + negative corpus size (rows where
+#                             it did) + current Claude reviewer queue
+#                             depth (proxy: rows scheduled-but-unposted,
+#                             i.e. composite < threshold AND no
+#                             claude_reviews row yet).
+#
+# Acceptance threshold is the inverse of the negative threshold:
+# anything at-or-above ``claude_review_threshold`` is "Surge handled it
+# well enough that Claude was NOT pulled in." Anything below that
+# triggered the Claude teacher loop. The numbers compose so accept +
+# negative = total scored shadow rows in the window.
+
+
+@dataclass(slots=True)
+class ShadowTrendPoint:
+    """One day in the Phase B Surge-quality trend chart."""
+
+    day: str
+    n_responses: int
+    avg_composite: float
+
+
+@dataclass(slots=True)
+class ShadowCorpusSummary:
+    """Top-line Phase B numbers: how big is the acceptance corpus, how
+    big is the negative corpus, how deep is the Claude reviewer queue.
+    """
+
+    window_days: int
+    total_shadow_responses: int
+    acceptance_corpus_size: int       # rows at-or-above review threshold
+    negative_corpus_size: int          # rows below review threshold
+    claude_reviewer_queue_depth: int   # below threshold + no review row yet
+    acceptance_growth_last_7d: int     # net new acceptance rows in last 7d
+    avg_composite_overall: float       # window mean composite
+
+
 # --- SQL helpers ------------------------------------------------------------
 
 
@@ -348,6 +402,146 @@ def _query_low_scores(
     return out
 
 
+# --- Phase B queries --------------------------------------------------------
+
+
+# Source label the PulsePoint hub uses when forwarding shadow turns
+# (see SurgeXi/pulsepoint pulsepoint/shadow.py SHADOW_SOURCE_LABEL).
+# Keep these two strings in lock-step.
+SHADOW_SOURCE_LABEL = "shadow-phase-b"
+
+
+def _query_shadow_trend(db: Session, schema: str, days: int = 14) -> list[ShadowTrendPoint]:
+    """Per-day average rubric composite for shadow rows.
+
+    This is the "is Surge getting better?" line. Rows are filtered to
+    ``responses.source = 'shadow-phase-b'`` so only Phase B shadow turns
+    contribute. Days with zero shadow rows are emitted with
+    ``n_responses=0`` + ``avg_composite=0.0`` so the chart renders an
+    unbroken 14-day window even on slow days.
+    """
+    sql = text(
+        f"""
+        WITH days AS (
+            SELECT (date_trunc('day', now() - (n || ' days')::interval))::date AS day
+            FROM generate_series(0, :days - 1) AS n
+        )
+        SELECT
+            d.day,
+            COUNT(rs.id) AS n,
+            AVG(rs.composite) AS avg_composite
+        FROM days d
+        LEFT JOIN {schema}.responses r
+               ON date_trunc('day', r.generated_at)::date = d.day
+              AND r.source = :src
+        LEFT JOIN {schema}.rubric_scores rs ON rs.response_id = r.id
+        GROUP BY d.day
+        ORDER BY d.day
+        """
+    )
+    rows = db.execute(sql, {"days": days, "src": SHADOW_SOURCE_LABEL}).all()
+    return [
+        ShadowTrendPoint(
+            day=row.day.isoformat(),
+            n_responses=int(row.n or 0),
+            avg_composite=round(float(row.avg_composite or 0.0), 2),
+        )
+        for row in rows
+    ]
+
+
+def _query_shadow_corpus_summary(
+    db: Session, schema: str, threshold: float, days: int = 14
+) -> ShadowCorpusSummary:
+    """Acceptance corpus + negative corpus + Claude reviewer queue depth.
+
+    All three numbers are derived from the same window so they compose:
+    accept + negative = total in window. Queue depth is a forward-looking
+    count: rows below threshold that DO NOT YET have a Claude review row
+    written — i.e. the reviewer hasn't caught up. A growing queue depth
+    is the operator's leading signal that the Anthropic backend is
+    saturated or rate-limited.
+    """
+    sql = text(
+        f"""
+        WITH window_shadow AS (
+            SELECT r.id, rs.composite, rs.scored_at,
+                   cr.id IS NOT NULL AS reviewed
+            FROM {schema}.responses r
+            JOIN {schema}.rubric_scores rs ON rs.response_id = r.id
+            LEFT JOIN {schema}.claude_reviews cr ON cr.response_id = r.id
+            WHERE r.source = :src
+              AND r.generated_at >= now() - (:days || ' days')::interval
+        ),
+        last_7 AS (
+            SELECT r.id, rs.composite
+            FROM {schema}.responses r
+            JOIN {schema}.rubric_scores rs ON rs.response_id = r.id
+            WHERE r.source = :src
+              AND r.generated_at >= now() - INTERVAL '7 days'
+        )
+        SELECT
+            (SELECT COUNT(*) FROM window_shadow)                            AS total,
+            (SELECT COUNT(*) FROM window_shadow WHERE composite >= :thr)    AS accept,
+            (SELECT COUNT(*) FROM window_shadow WHERE composite < :thr)     AS negative,
+            (SELECT COUNT(*) FROM window_shadow
+                WHERE composite < :thr AND reviewed = false)                AS queue_depth,
+            (SELECT COUNT(*) FROM last_7 WHERE composite >= :thr)           AS accept_7d,
+            (SELECT AVG(composite) FROM window_shadow)                      AS avg_composite
+        """
+    )
+    row = db.execute(
+        sql, {"days": days, "src": SHADOW_SOURCE_LABEL, "thr": threshold}
+    ).one()
+    return ShadowCorpusSummary(
+        window_days=days,
+        total_shadow_responses=int(row.total or 0),
+        acceptance_corpus_size=int(row.accept or 0),
+        negative_corpus_size=int(row.negative or 0),
+        claude_reviewer_queue_depth=int(row.queue_depth or 0),
+        acceptance_growth_last_7d=int(row.accept_7d or 0),
+        avg_composite_overall=round(float(row.avg_composite or 0.0), 2),
+    )
+
+
+def _query_shadow_topics(db: Session, schema: str, days: int = 14) -> list[TopicBucket]:
+    """Topic breakdown scoped to shadow rows only.
+
+    Note: shadow rows don't go through the routing engine (they aren't
+    candidates for delivery), so we can't reuse the routing_decisions
+    join the original topic panel uses. Instead we extract the topic
+    from ``responses.identity_json->>'topic'`` when the PulsePoint hub
+    populated it. Today the hub doesn't classify so the field is rarely
+    set — most rows will fall into the '(unclassified)' bucket, which is
+    accurate for Phase B. The panel will become useful when the hub
+    adds topic classification (Phase C work item).
+    """
+    sql = text(
+        f"""
+        SELECT
+            COALESCE(r.identity_json->>'topic', '(unclassified)') AS topic,
+            COUNT(*) AS n,
+            AVG(rs.composite) AS avg_composite
+        FROM {schema}.responses r
+        JOIN {schema}.rubric_scores rs ON rs.response_id = r.id
+        WHERE r.source = :src
+          AND r.generated_at >= now() - (:days || ' days')::interval
+        GROUP BY topic
+        ORDER BY n DESC
+        LIMIT 12
+        """
+    )
+    rows = db.execute(sql, {"days": days, "src": SHADOW_SOURCE_LABEL}).all()
+    return [
+        TopicBucket(
+            topic=row.topic,
+            n=int(row.n),
+            avg_composite=round(float(row.avg_composite or 0.0), 2),
+        )
+        for row in rows
+    ]
+
+
 # --- Metrics builder shared by HTML + JSON ---------------------------------
 
 
@@ -357,6 +551,13 @@ def _build_metrics(db: Session) -> dict[str, Any]:
     daily = _query_daily(db, schema)
     topics = _query_topics(db, schema)
     low = _query_low_scores(db, schema, threshold=settings.claude_review_threshold)
+    # Phase B panels — see ShadowTrendPoint / ShadowCorpusSummary
+    # dataclass docstrings for the panel-by-panel rationale.
+    shadow_trend = _query_shadow_trend(db, schema)
+    shadow_corpus = _query_shadow_corpus_summary(
+        db, schema, threshold=settings.claude_review_threshold
+    )
+    shadow_topics = _query_shadow_topics(db, schema)
     today: date = datetime.now(timezone.utc).date()
     return {
         "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -372,6 +573,10 @@ def _build_metrics(db: Session) -> dict[str, Any]:
             }
             for row in low
         ],
+        # Phase B
+        "shadow_trend": [asdict(p) for p in shadow_trend],
+        "shadow_topics": [asdict(t) for t in shadow_topics],
+        "shadow_corpus": asdict(shadow_corpus),
     }
 
 

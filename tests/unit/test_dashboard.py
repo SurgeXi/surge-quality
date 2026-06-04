@@ -103,6 +103,22 @@ def test_combined_score_handles_none_rubric() -> None:
 # --- Template render -------------------------------------------------------
 
 
+def _empty_shadow_corpus() -> dict:
+    """Empty Phase B payload used to satisfy the dashboard's template
+    inputs in tests that focus on the original (non-shadow) panels.
+    Kept here (not at module top) so it's adjacent to the tests that
+    use it."""
+    return {
+        "window_days": 14,
+        "total_shadow_responses": 0,
+        "acceptance_corpus_size": 0,
+        "negative_corpus_size": 0,
+        "claude_reviewer_queue_depth": 0,
+        "acceptance_growth_last_7d": 0,
+        "avg_composite_overall": 0.0,
+    }
+
+
 def test_dashboard_template_renders_with_empty_payload() -> None:
     """The template must not crash on empty days/topics/lows."""
     templates_dir = (
@@ -124,11 +140,17 @@ def test_dashboard_template_renders_with_empty_payload() -> None:
         daily=[],
         topics=[],
         low_scores=[],
+        shadow_trend=[],
+        shadow_topics=[],
+        shadow_corpus=_empty_shadow_corpus(),
     )
     # Sanity: the three empty-state strings render.
     assert "No scored responses in the window." in html
     assert "No routing decisions in the window." in html
     assert "Surge is on the rails" in html
+    # Phase B section renders an empty-state message rather than crashing.
+    assert "Phase B" in html
+    assert "Phase B has not yet been wired in" in html
 
 
 def test_dashboard_template_renders_with_populated_payload() -> None:
@@ -179,6 +201,9 @@ def test_dashboard_template_renders_with_populated_payload() -> None:
                 "snippet": "Here is a confidently wrong answer.",
             }
         ],
+        shadow_trend=[],
+        shadow_topics=[],
+        shadow_corpus=_empty_shadow_corpus(),
     )
     # SVG chart present.
     assert '<svg class="chart"' in html
@@ -189,3 +214,63 @@ def test_dashboard_template_renders_with_populated_payload() -> None:
     assert "/v1/quality/score-response/42" in html
     # Low-score "teach" pill for the <5 row.
     assert "teach" in html
+
+
+def test_dashboard_template_renders_phase_b_panels() -> None:
+    """Phase B section must render all three panels (stat tiles + trend
+    line + topic table) when populated. Locks the template against an
+    accidental ``shadow_corpus`` / ``shadow_trend`` / ``shadow_topics``
+    rename — the dashboard.py builder + template names MUST stay in
+    lock-step.
+    """
+    templates_dir = (
+        Path(__file__).resolve().parent.parent.parent
+        / "src"
+        / "surge_quality"
+        / "templates"
+    )
+    env = Environment(
+        loader=FileSystemLoader(str(templates_dir)),
+        autoescape=select_autoescape(["html", "xml"]),
+    )
+    template = env.get_template("dashboard.html.j2")
+    html = template.render(
+        generated_at="2026-06-04T06:00:00+00:00",
+        today="2026-06-04",
+        window_days=14,
+        claude_review_threshold=5.0,
+        daily=[],
+        topics=[],
+        low_scores=[],
+        shadow_trend=[
+            {"day": "2026-06-03", "n_responses": 5, "avg_composite": 6.2},
+            {"day": "2026-06-04", "n_responses": 8, "avg_composite": 7.1},
+        ],
+        shadow_topics=[
+            {"topic": "tax-deadline", "n": 6, "avg_composite": 7.4},
+            {"topic": "(unclassified)", "n": 4, "avg_composite": 3.9},
+        ],
+        shadow_corpus={
+            "window_days": 14,
+            "total_shadow_responses": 13,
+            "acceptance_corpus_size": 10,
+            "negative_corpus_size": 3,
+            "claude_reviewer_queue_depth": 1,
+            "acceptance_growth_last_7d": 8,
+            "avg_composite_overall": 6.7,
+        },
+    )
+    # Phase B stat tiles
+    assert "Total shadow turns" in html
+    assert "Acceptance corpus" in html
+    assert "Negative corpus" in html
+    assert "Reviewer queue depth" in html
+    # Numbers render (acceptance 10 visible, growth +8 visible).
+    assert ">10<" in html or "10\n" in html  # tile-value can be on its own line
+    assert "+8 last 7d" in html
+    # Trend SVG chart present
+    assert 'aria-label="phase B surge quality trend"' in html
+    # Topic table renders with the pill class — accept (pill surge) for
+    # >= threshold, warn for < threshold.
+    assert "pill surge" in html  # tax-deadline is above 5.0
+    assert "pill warn" in html   # (unclassified) is below 5.0

@@ -128,6 +128,33 @@
       text-overflow: ellipsis;
       white-space: nowrap;
     }
+    /* Phase B stat tiles — used by the shadow-corpus summary panel. */
+    .tile {
+      flex: 1 1 0;
+      min-width: 130px;
+      padding: 12px 14px;
+      border: 1px solid var(--silver);
+      border-radius: 10px;
+      background: #fff;
+    }
+    .tile-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--graphite);
+      margin-bottom: 6px;
+    }
+    .tile-value {
+      font-size: 26px;
+      font-weight: 700;
+      color: var(--exec);
+      line-height: 1.0;
+    }
+    .tile-sub {
+      font-size: 11px;
+      color: var(--graphite);
+      margin-top: 6px;
+    }
     svg.chart { display: block; }
     .axis text { font-size: 10px; fill: var(--graphite); }
     .grid line { stroke: var(--silver); stroke-width: 1; }
@@ -282,6 +309,154 @@
                   <span class="pill claude">watch</span>
                 {% else %}
                   <span class="pill warn">teach</span>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% endif %}
+  </section>
+
+  {# --- Phase B (Claude→Surge takeover) — shadow corpus summary ------- #}
+  {# The Phase B section is a self-contained block: a top stat row,
+     a trend line, then a topic histogram. Filtered to shadow rows so
+     the original panels remain a live-traffic view and these new
+     panels are the "how is Surge doing on parallel shadow turns?"
+     view. See project_pulsepoint_design_decisions §Sequencing → B. #}
+  <section class="panel" style="border-color: var(--teal);">
+    <h2>Phase B — Surge shadow corpus</h2>
+    <div class="desc">
+      Phase B (Claude→Surge takeover, shadow mode). On every PulsePoint
+      customer turn Surge generates a parallel response; Claude continues
+      to serve the customer. Surge's response is scored on the 10-axis
+      rubric. Acceptance corpus = shadow rows with composite at-or-above
+      threshold {{ "%.2f"|format(claude_review_threshold) }}. Negative corpus =
+      below threshold (Claude reviewer fires on these). Window: last
+      {{ shadow_corpus.window_days }} days.
+    </div>
+    {% set sc = shadow_corpus %}
+    <div class="row">
+      <div class="tile">
+        <div class="tile-label">Total shadow turns</div>
+        <div class="tile-value num">{{ sc.total_shadow_responses }}</div>
+      </div>
+      <div class="tile">
+        <div class="tile-label">Acceptance corpus</div>
+        <div class="tile-value num" style="color: var(--teal);">
+          {{ sc.acceptance_corpus_size }}
+        </div>
+        <div class="tile-sub">+{{ sc.acceptance_growth_last_7d }} last 7d</div>
+      </div>
+      <div class="tile">
+        <div class="tile-label">Negative corpus</div>
+        <div class="tile-value num" style="color: var(--warn);">
+          {{ sc.negative_corpus_size }}
+        </div>
+        <div class="tile-sub">claude reviewer fires</div>
+      </div>
+      <div class="tile">
+        <div class="tile-label">Reviewer queue depth</div>
+        <div class="tile-value num">{{ sc.claude_reviewer_queue_depth }}</div>
+        <div class="tile-sub">below threshold, no review yet</div>
+      </div>
+      <div class="tile">
+        <div class="tile-label">Avg composite</div>
+        <div class="tile-value num">{{ "%.2f"|format(sc.avg_composite_overall) }}</div>
+        <div class="tile-sub">/10</div>
+      </div>
+    </div>
+  </section>
+
+  {# --- Phase B trend line --------------------------------------------- #}
+  <section class="panel">
+    <h2>Phase B — Surge shadow quality trend</h2>
+    <div class="desc">
+      Per-day average rubric composite over shadow rows. The line is the
+      "is Surge getting better?" signal; bar height is the number of
+      shadow turns scored that day so a quiet day doesn't read as a
+      regression. Last {{ window_days }} days.
+    </div>
+    {% if shadow_trend|length == 0 %}
+      <div class="empty">No shadow rows in window — Phase B has not yet been wired in to PulsePoint, or the hub has not received any tester messages.</div>
+    {% else %}
+      {% set W = 720 %}
+      {% set H = 220 %}
+      {% set padL = 36 %}
+      {% set padR = 12 %}
+      {% set padT = 8 %}
+      {% set padB = 28 %}
+      {% set plotW = W - padL - padR %}
+      {% set plotH = H - padT - padB %}
+      {% set bw = (plotW / shadow_trend|length) - 6 if plotW > 0 else 0 %}
+      {% set max_n = shadow_trend|map(attribute='n_responses')|max %}
+      {% set max_n = max_n if max_n > 0 else 1 %}
+      <svg class="chart" viewBox="0 0 {{ W }} {{ H }}" width="100%" height="{{ H }}" role="img" aria-label="phase B surge quality trend">
+        <g class="grid">
+          {% for v in [0, 2, 4, 6, 8, 10] %}
+            {% set y = padT + plotH - (v / 10.0) * plotH %}
+            <line x1="{{ padL }}" x2="{{ W - padR }}" y1="{{ y }}" y2="{{ y }}"/>
+            <text x="{{ padL - 6 }}" y="{{ y + 3 }}" text-anchor="end">{{ v }}</text>
+          {% endfor %}
+        </g>
+        {# count bars (background, faint teal) #}
+        {% for p in shadow_trend %}
+          {% set x = padL + loop.index0 * (plotW / shadow_trend|length) + 3 %}
+          {% set h = (p.n_responses / max_n) * plotH * 0.4 %}
+          {% set y = padT + plotH - h %}
+          <rect class="bar surge" x="{{ x }}" y="{{ y }}" width="{{ bw }}" height="{{ h }}" opacity="0.25"/>
+        {% endfor %}
+        {# composite line #}
+        <polyline class="line" stroke="var(--teal)" points="
+          {%- for p in shadow_trend -%}
+            {% set x = padL + loop.index0 * (plotW / shadow_trend|length) + (bw / 2) + 3 %}
+            {% set y = padT + plotH - (p.avg_composite / 10.0) * plotH %}
+            {{ x }},{{ y }}{% if not loop.last %} {% endif %}
+          {%- endfor -%}
+        "/>
+        <g class="axis">
+          {% for p in shadow_trend %}
+            {% if loop.index0 % 2 == 0 %}
+              {% set x = padL + loop.index0 * (plotW / shadow_trend|length) + (bw / 2) + 3 %}
+              <text x="{{ x }}" y="{{ H - 10 }}" text-anchor="middle">{{ p.day[5:] }}</text>
+            {% endif %}
+          {% endfor %}
+        </g>
+      </svg>
+    {% endif %}
+  </section>
+
+  {# --- Phase B topic breakdown ---------------------------------------- #}
+  <section class="panel">
+    <h2>Phase B — Surge shadow: topic breakdown</h2>
+    <div class="desc">
+      Shadow rows grouped by topic (taken from
+      <code>responses.identity_json -&gt; topic</code> when the
+      PulsePoint hub classifies the turn; else
+      <code>(unclassified)</code>). Useful for spotting topic areas
+      where shadow Surge consistently scores low.
+    </div>
+    {% if shadow_topics|length == 0 %}
+      <div class="empty">No shadow rows in window.</div>
+    {% else %}
+      <table>
+        <thead>
+          <tr>
+            <th>topic</th>
+            <th class="num">turns</th>
+            <th class="num">avg composite</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for t in shadow_topics %}
+            <tr>
+              <td>{{ t.topic }}</td>
+              <td class="num">{{ t.n }}</td>
+              <td class="num">
+                {% if t.avg_composite >= claude_review_threshold %}
+                  <span class="pill surge">{{ "%.2f"|format(t.avg_composite) }}</span>
+                {% else %}
+                  <span class="pill warn">{{ "%.2f"|format(t.avg_composite) }}</span>
                 {% endif %}
               </td>
             </tr>

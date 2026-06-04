@@ -1,0 +1,101 @@
+[Unit]
+Description=Surge Quality - response scoring + telemetry + routing recommendation service
+Documentation=https://github.com/SurgeXi/surge-quality
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User=surge-quality
+Group=surge-quality
+WorkingDirectory=/opt/surge-quality
+
+# Env files (root-owned, 0600). Provisioned out-of-band.
+EnvironmentFile=/etc/surge-quality/db.env
+EnvironmentFile=/etc/surge-quality/claude.env
+EnvironmentFile=/etc/surge-quality/service-tokens.env
+Environment=SURGE_QUALITY_PORT=9311
+Environment=SURGE_QUALITY_HOST=127.0.0.1
+Environment=SURGE_QUALITY_ENV=production
+
+ExecStart=/opt/surge-quality/venv/bin/uvicorn surge_quality.main:app \
+  --host 127.0.0.1 --port 9311 --workers 2 --proxy-headers
+Restart=on-failure
+RestartSec=10s
+StandardOutput=journal
+StandardError=journal
+
+# =========================================================================
+# Hardening (H-1 audit Rec 9 + the PR-9 narrowing).
+#
+# Code, venv, alembic, etc. are READ-ONLY at runtime — a code-injection
+# bug cannot drop a new .py into the source tree. The only writable
+# locations are:
+#   /opt/surge-quality/var      runtime-mutable data (caches, locks, etc.)
+#   /var/log/surge-quality      log files
+#
+# Both are pre-created with mode 0750, owner surge-quality, by the
+# install script (deploy/install-systemd.sh). PrivateTmp gives each
+# unit its own /tmp namespace.
+# =========================================================================
+
+# Filesystem
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectHostname=true
+ProtectClock=true
+ProtectProc=invisible
+ProcSubset=pid
+PrivateTmp=true
+PrivateDevices=true
+
+# Narrow ReadWritePaths to the two locations the service actually writes
+# to. Anything else (including /opt/surge-quality itself) is read-only.
+ReadWritePaths=/opt/surge-quality/var
+ReadWritePaths=/var/log/surge-quality
+
+# Network — service only needs IPv4/IPv6 TCP. No raw sockets, no
+# AF_NETLINK, no AF_PACKET. The Postgres + Hermes + Anthropic API
+# clients all use AF_INET(6).
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+IPAddressDeny=any
+# Allow loopback (Postgres + Hermes via Tailscale 100.64/10 subnet, plus
+# Anthropic via the public internet — restricted at the egress firewall,
+# not here). We err on the side of explicit allow rather than firewalling
+# everything; the IPAddressAllow lines below are tuned to the surge-ai +
+# surgecore + claude.anthropic.com path.
+IPAddressAllow=localhost
+IPAddressAllow=10.0.0.0/8
+IPAddressAllow=100.64.0.0/10
+IPAddressAllow=0.0.0.0/0
+
+# Capabilities — drop everything. The service binds 9311 which is >1024,
+# so it does not need CAP_NET_BIND_SERVICE.
+CapabilityBoundingSet=
+AmbientCapabilities=
+
+# Namespaces — block the service from creating new namespaces (no
+# containers-inside-the-service tricks).
+RestrictNamespaces=true
+
+# Misc kernel-surface narrowing.
+LockPersonality=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+MemoryDenyWriteExecute=true
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources @mount @debug @cpu-emulation @obsolete @raw-io @reboot @swap
+
+# Sane resource caps to keep a runaway worker from eating the box.
+LimitNOFILE=4096
+LimitNPROC=512
+TasksMax=512
+
+[Install]
+WantedBy=multi-user.target

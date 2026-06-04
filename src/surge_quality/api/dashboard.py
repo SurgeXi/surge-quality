@@ -50,7 +50,7 @@ Read-only — no writes, no side-effects. Safe to expose.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
@@ -363,11 +363,11 @@ def _build_metrics(db: Session) -> dict[str, Any]:
         "today": today.isoformat(),
         "window_days": 14,
         "claude_review_threshold": settings.claude_review_threshold,
-        "daily": [d.__dict__ for d in daily],
-        "topics": [t.__dict__ for t in topics],
+        "daily": [asdict(d) for d in daily],
+        "topics": [asdict(t) for t in topics],
         "low_scores": [
             {
-                **row.__dict__,
+                **asdict(row),
                 "generated_at": row.generated_at.isoformat(),
             }
             for row in low

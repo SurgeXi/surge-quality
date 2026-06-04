@@ -1,0 +1,146 @@
+{
+  "annotations": {"list": []},
+  "description": "surge-quality operator dashboard. Per-day Surge share, per-day average combined quality score (rubric 0-10 + telemetry contribution), topic-area breakdown, and low-score replay. Backed by the surge_quality Postgres schema on the shared surge_brain DB (uid=surge_quality_pg). Mirrors the Jinja2 fallback dashboard served by the service at /v1/quality/dashboard.",
+  "editable": false,
+  "graphTooltip": 1,
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Scored responses (last 14d)",
+      "gridPos": {"h": 4, "w": 5, "x": 0, "y": 0},
+      "datasource": {"type": "postgres", "uid": "surge_quality_pg"},
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawSql": "SELECT COUNT(*) AS value FROM surge_quality.rubric_scores rs JOIN surge_quality.responses r ON r.id = rs.response_id WHERE r.generated_at >= now() - interval '14 days';"
+        }
+      ],
+      "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "thresholds": {"steps": [{"color": "blue"}]}, "unit": "short"}}
+    },
+    {
+      "type": "stat",
+      "title": "Avg rubric composite",
+      "gridPos": {"h": 4, "w": 5, "x": 5, "y": 0},
+      "datasource": {"type": "postgres", "uid": "surge_quality_pg"},
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawSql": "SELECT AVG(rs.composite) AS value FROM surge_quality.rubric_scores rs JOIN surge_quality.responses r ON r.id = rs.response_id WHERE r.generated_at >= now() - interval '14 days';"
+        }
+      ],
+      "fieldConfig": {"defaults": {"unit": "short", "decimals": 2, "color": {"mode": "thresholds"}, "thresholds": {"steps": [{"color": "red"}, {"color": "yellow", "value": 5}, {"color": "green", "value": 7}]}}}
+    },
+    {
+      "type": "stat",
+      "title": "Low-score share",
+      "gridPos": {"h": 4, "w": 5, "x": 10, "y": 0},
+      "datasource": {"type": "postgres", "uid": "surge_quality_pg"},
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawSql": "SELECT (SUM(CASE WHEN composite < 5 THEN 1 ELSE 0 END)::float / NULLIF(COUNT(*),0)) AS value FROM surge_quality.rubric_scores rs JOIN surge_quality.responses r ON r.id = rs.response_id WHERE r.generated_at >= now() - interval '14 days';"
+        }
+      ],
+      "fieldConfig": {"defaults": {"unit": "percentunit", "decimals": 2, "color": {"mode": "thresholds"}, "thresholds": {"steps": [{"color": "green"}, {"color": "yellow", "value": 0.10}, {"color": "red", "value": 0.25}]}}}
+    },
+    {
+      "type": "stat",
+      "title": "Claude takeovers",
+      "gridPos": {"h": 4, "w": 4, "x": 15, "y": 0},
+      "datasource": {"type": "postgres", "uid": "surge_quality_pg"},
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawSql": "SELECT COUNT(*) AS value FROM surge_quality.routing_decisions WHERE decision = 'claude_primary' AND decided_at >= now() - interval '14 days';"
+        }
+      ],
+      "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "thresholds": {"steps": [{"color": "blue"}]}, "unit": "short"}}
+    },
+    {
+      "type": "timeseries",
+      "title": "Per-day Surge share (% of scored responses)",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4},
+      "datasource": {"type": "postgres", "uid": "surge_quality_pg"},
+      "targets": [
+        {
+          "refId": "A",
+          "format": "time_series",
+          "rawSql": "SELECT date_trunc('day', r.generated_at) AS time, 100.0 * SUM(CASE WHEN r.model_used ILIKE '%claude%' THEN 0 ELSE 1 END)::float / NULLIF(COUNT(*),0) AS \"surge %\", 100.0 * SUM(CASE WHEN r.model_used ILIKE '%claude%' THEN 1 ELSE 0 END)::float / NULLIF(COUNT(*),0) AS \"claude %\" FROM surge_quality.responses r JOIN surge_quality.rubric_scores rs ON rs.response_id = r.id WHERE r.generated_at >= now() - interval '14 days' GROUP BY 1 ORDER BY 1;"
+        }
+      ],
+      "fieldConfig": {"defaults": {"unit": "percent", "min": 0, "max": 100, "custom": {"drawStyle": "bars", "stacking": {"mode": "percent"}, "fillOpacity": 70, "lineWidth": 0}}}
+    },
+    {
+      "type": "timeseries",
+      "title": "Per-day average rubric composite (0-10)",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4},
+      "datasource": {"type": "postgres", "uid": "surge_quality_pg"},
+      "targets": [
+        {
+          "refId": "A",
+          "format": "time_series",
+          "rawSql": "SELECT date_trunc('day', r.generated_at) AS time, AVG(rs.composite) AS \"avg composite\" FROM surge_quality.responses r JOIN surge_quality.rubric_scores rs ON rs.response_id = r.id WHERE r.generated_at >= now() - interval '14 days' GROUP BY 1 ORDER BY 1;"
+        }
+      ],
+      "fieldConfig": {"defaults": {"unit": "short", "min": 0, "max": 10, "decimals": 2, "custom": {"drawStyle": "line", "lineWidth": 2, "fillOpacity": 12}, "thresholds": {"mode": "absolute", "steps": [{"color": "red"}, {"color": "yellow", "value": 5}, {"color": "green", "value": 7}]}}}
+    },
+    {
+      "type": "timeseries",
+      "title": "Per-day combined quality (0-1, rubric + telemetry)",
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 12},
+      "datasource": {"type": "postgres", "uid": "surge_quality_pg"},
+      "targets": [
+        {
+          "refId": "A",
+          "format": "time_series",
+          "rawSql": "WITH per_response AS (SELECT date_trunc('day', r.generated_at) AS day, rs.composite, (SELECT AVG(CASE WHEN ts.signal_type = 'thumbs_up' THEN 1.0 WHEN ts.signal_type = 'thumbs_down' THEN -1.0 WHEN ts.signal_type = 'dropoff' THEN -0.5 WHEN ts.signal_type = 'reask' THEN -0.5 WHEN ts.signal_type = 'human_escalation_request' THEN -1.0 WHEN ts.signal_type = 'reply_time_seconds' AND ts.value <= 30 THEN 0.3 WHEN ts.signal_type = 'reply_time_seconds' AND ts.value <= 90 THEN 0.0 WHEN ts.signal_type = 'reply_time_seconds' THEN -0.3 ELSE NULL END) FROM surge_quality.telemetry_signals ts WHERE ts.response_id = r.id) AS telem_raw FROM surge_quality.responses r JOIN surge_quality.rubric_scores rs ON rs.response_id = r.id WHERE r.generated_at >= now() - interval '14 days') SELECT day AS time, 0.7 * AVG(composite)/10.0 + 0.3 * COALESCE((GREATEST(LEAST(AVG(telem_raw), 1.0), -1.0) + 1.0)/2.0, 0.5) AS \"combined\" FROM per_response GROUP BY 1 ORDER BY 1;"
+        }
+      ],
+      "fieldConfig": {"defaults": {"unit": "short", "min": 0, "max": 1, "decimals": 3, "custom": {"drawStyle": "line", "lineWidth": 2, "fillOpacity": 20, "pointSize": 5}, "thresholds": {"mode": "absolute", "steps": [{"color": "red"}, {"color": "yellow", "value": 0.5}, {"color": "green", "value": 0.7}]}}}
+    },
+    {
+      "type": "barchart",
+      "title": "Topic-area breakdown (last 14d turns)",
+      "gridPos": {"h": 9, "w": 12, "x": 0, "y": 20},
+      "datasource": {"type": "postgres", "uid": "surge_quality_pg"},
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawSql": "SELECT COALESCE(rd.factors_json->>'topic', '(unclassified)') AS topic, COUNT(*) AS turns FROM surge_quality.routing_decisions rd WHERE rd.decided_at >= now() - interval '14 days' GROUP BY 1 ORDER BY turns DESC LIMIT 12;"
+        }
+      ],
+      "options": {"orientation": "horizontal", "xTickLabelRotation": 0}
+    },
+    {
+      "type": "table",
+      "title": "Low-score replay (composite < threshold, last 25)",
+      "gridPos": {"h": 9, "w": 12, "x": 12, "y": 20},
+      "datasource": {"type": "postgres", "uid": "surge_quality_pg"},
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawSql": "SELECT r.id AS response_id, r.conversation_id, ROUND(rs.composite::numeric, 2) AS composite, r.model_used, r.generated_at, LEFT(r.response_text, 160) AS snippet FROM surge_quality.responses r JOIN surge_quality.rubric_scores rs ON rs.response_id = r.id WHERE rs.composite < 5.0 ORDER BY r.generated_at DESC LIMIT 25;"
+        }
+      ],
+      "options": {"showHeader": true},
+      "fieldConfig": {"defaults": {"custom": {"align": "left"}}}
+    }
+  ],
+  "refresh": "1m",
+  "schemaVersion": 39,
+  "tags": ["surge", "quality"],
+  "templating": {"list": []},
+  "time": {"from": "now-14d", "to": "now"},
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Surge — Quality Recommender",
+  "uid": "surge-quality",
+  "version": 1,
+  "weekStart": ""
+}

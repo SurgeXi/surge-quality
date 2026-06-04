@@ -1,0 +1,19 @@
+# Grafana dashboard provisioning for surge-quality.
+#
+# Drops alongside any existing dashboard provider — each provider scans
+# its own folder. We use a dedicated folder so a future operator clean-up
+# of fleet dashboards won't accidentally remove the quality dashboard.
+#
+# The install script copies surge-quality.json into
+# /var/lib/grafana/dashboards/surge-quality/ so Grafana hot-loads it.
+apiVersion: 1
+providers:
+  - name: surge-quality
+    orgId: 1
+    folder: Surge
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: false
+    options:
+      path: /var/lib/grafana/dashboards/surge-quality

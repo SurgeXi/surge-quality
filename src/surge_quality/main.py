@@ -1,11 +1,11 @@
 """surge-quality FastAPI app factory.
 
-Endpoints land here incrementally:
+Endpoints:
 - PR-2: /healthz, /readyz
 - PR-3: /v1/quality/score-response (POST + GET)
-- PR-4 (this commit): /v1/quality/telemetry (POST)
-- PR-5: triggered by PR-3 worker, no new endpoint
-- PR-6: /v1/quality/route-decision
+- PR-4: /v1/quality/telemetry (POST)
+- PR-5: scoring API triggers Claude reviewer background task
+- PR-6 (this commit): /v1/quality/route-decision (POST)
 """
 
 from __future__ import annotations
@@ -16,6 +16,7 @@ from typing import Any
 from fastapi import FastAPI
 from sqlalchemy import text
 
+from surge_quality.api import routing as routing_api
 from surge_quality.api import scoring as scoring_api
 from surge_quality.api import telemetry as telemetry_api
 from surge_quality.db import SessionLocal
@@ -23,7 +24,7 @@ from surge_quality.settings import get_settings
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):  # noqa: ARG001 — FastAPI signature
+async def lifespan(app: FastAPI):  # noqa: ARG001
     yield
 
 
@@ -43,6 +44,7 @@ def create_app() -> FastAPI:
 
     app.include_router(scoring_api.router)
     app.include_router(telemetry_api.router)
+    app.include_router(routing_api.router)
 
     @app.get("/healthz", tags=["ops"])
     def healthz() -> dict[str, str]:

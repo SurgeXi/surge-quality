@@ -1,0 +1,29 @@
+# Grafana datasource provisioning for surge-quality.
+#
+# Read-only Postgres connection into the shared surge_brain DB, scoped to
+# the surge_quality schema. We deliberately use a separate datasource UID
+# ('surge_quality_pg') from any future surge_brain datasource so dashboards
+# in this repo never bleed into other schemas.
+#
+# Password is loaded from the environment so it never lands in this repo.
+# The grafana service reads /etc/grafana/surge-quality.env (provisioned
+# next to /etc/grafana/grafana.ini) and exposes the variables to the
+# provisioning loader.
+apiVersion: 1
+
+datasources:
+  - name: surge_quality_pg
+    uid: surge_quality_pg
+    type: postgres
+    access: proxy
+    url: 127.0.0.1:5432
+    user: surge_quality
+    database: surge_brain
+    isDefault: false
+    editable: false
+    jsonData:
+      sslmode: disable
+      postgresVersion: 1500
+      timescaledb: false
+    secureJsonData:
+      password: ${SURGE_QUALITY_PG_PASSWORD}

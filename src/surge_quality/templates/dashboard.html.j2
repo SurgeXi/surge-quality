@@ -1,0 +1,342 @@
+{# Operator dashboard — Jinja2 fallback for nodes without Grafana.
+
+   Read-only, server-rendered, zero JavaScript. Charts are inline SVG built
+   server-side so the page renders in any browser with no follow-on fetch.
+   This is intentional — the dashboard becomes trivially smoke-testable
+   (one GET, no JS execution required) and the attack surface stays at
+   exactly the same surface area as the rest of the FastAPI routes.
+
+   Style is deliberately understated: the page exists for one operator
+   (Todd) to skim daily, not for a customer-facing portal.
+#}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>surge-quality — operator dashboard</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <style>
+    :root {
+      --navy: #071A2F;
+      --teal: #00A6A6;
+      --exec: #0B4F8A;
+      --silver: #D9E2EC;
+      --graphite: #3A4656;
+      --bg: #F8FAFC;
+      --warn: #c0392b;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, "Inter", system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--navy);
+    }
+    header {
+      background: linear-gradient(135deg, var(--navy), #0C2540);
+      color: #fff;
+      padding: 16px 28px;
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+    }
+    header h1 {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+    }
+    header .meta {
+      color: var(--teal);
+      font-size: 12px;
+    }
+    main {
+      padding: 24px 28px 56px;
+      max-width: 1240px;
+      margin: 0 auto;
+    }
+    .panel {
+      background: #fff;
+      border: 1px solid var(--silver);
+      border-radius: 12px;
+      padding: 18px 22px;
+      margin-bottom: 22px;
+      box-shadow: 0 1px 3px rgba(7, 26, 47, 0.05);
+    }
+    .panel h2 {
+      margin: 0 0 6px 0;
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--navy);
+      letter-spacing: 0.2px;
+    }
+    .panel .desc {
+      font-size: 12px;
+      color: var(--graphite);
+      margin-bottom: 16px;
+    }
+    .row {
+      display: flex;
+      gap: 18px;
+      flex-wrap: wrap;
+    }
+    .row > .panel { flex: 1 1 580px; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    th, td {
+      text-align: left;
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--silver);
+    }
+    th {
+      background: rgba(0, 166, 166, 0.05);
+      color: var(--navy);
+      font-weight: 700;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    tr:hover td { background: rgba(0, 166, 166, 0.03); }
+    .num { font-variant-numeric: tabular-nums; }
+    .pill {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-size: 11px;
+      font-weight: 700;
+      background: rgba(0, 166, 166, 0.1);
+      color: var(--exec);
+    }
+    .pill.warn { background: rgba(192, 57, 43, 0.1); color: var(--warn); }
+    .pill.surge { background: rgba(0, 166, 166, 0.15); color: var(--teal); }
+    .pill.claude { background: rgba(11, 79, 138, 0.12); color: var(--exec); }
+    .empty {
+      color: var(--graphite);
+      font-size: 13px;
+      padding: 18px 6px;
+      text-align: center;
+      font-style: italic;
+    }
+    .snippet {
+      color: var(--graphite);
+      font-size: 12px;
+      max-width: 460px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    svg.chart { display: block; }
+    .axis text { font-size: 10px; fill: var(--graphite); }
+    .grid line { stroke: var(--silver); stroke-width: 1; }
+    .bar.surge { fill: var(--teal); }
+    .bar.claude { fill: var(--exec); }
+    .line { fill: none; stroke: var(--exec); stroke-width: 2; }
+    .area { fill: rgba(11, 79, 138, 0.10); }
+    footer {
+      max-width: 1240px;
+      margin: 0 auto;
+      padding: 0 28px 24px;
+      font-size: 11px;
+      color: var(--graphite);
+    }
+  </style>
+</head>
+<body>
+<header>
+  <h1>surge-quality — operator dashboard</h1>
+  <div class="meta">
+    window: last {{ window_days }}d ·
+    threshold: {{ "%.2f"|format(claude_review_threshold) }} ·
+    generated: {{ generated_at }}
+  </div>
+</header>
+
+<main>
+
+  {# --- Daily surge share + combined score chart ----------------------- #}
+  <div class="row">
+    <section class="panel">
+      <h2>Per-day Surge share</h2>
+      <div class="desc">
+        % of scored responses each day handled by Surge (teal) vs Claude
+        (navy). Last {{ window_days }} days.
+      </div>
+      {% if daily|length == 0 %}
+        <div class="empty">No scored responses in the window.</div>
+      {% else %}
+        {# Inline SVG stacked bars. Width fixed; height computed to fit
+           a 0-100 axis. Each day is a stacked surge/claude pair. #}
+        {% set W = 720 %}
+        {% set H = 220 %}
+        {% set padL = 36 %}
+        {% set padR = 12 %}
+        {% set padT = 8 %}
+        {% set padB = 28 %}
+        {% set plotW = W - padL - padR %}
+        {% set plotH = H - padT - padB %}
+        {% set bw = (plotW / daily|length) - 6 if plotW > 0 else 0 %}
+        <svg class="chart" viewBox="0 0 {{ W }} {{ H }}" width="100%" height="{{ H }}" role="img" aria-label="per-day surge share">
+          <g class="grid">
+            {% for pct in [0, 25, 50, 75, 100] %}
+              {% set y = padT + plotH - (pct / 100.0) * plotH %}
+              <line x1="{{ padL }}" x2="{{ W - padR }}" y1="{{ y }}" y2="{{ y }}"/>
+              <text x="{{ padL - 6 }}" y="{{ y + 3 }}" text-anchor="end">{{ pct }}%</text>
+            {% endfor %}
+          </g>
+          {% for d in daily %}
+            {% set x = padL + loop.index0 * (plotW / daily|length) + 3 %}
+            {% set sh = (d.surge_share_pct / 100.0) * plotH %}
+            {% set ch = (d.claude_share_pct / 100.0) * plotH %}
+            <rect class="bar surge"  x="{{ x }}" y="{{ padT + plotH - sh }}"        width="{{ bw }}" height="{{ sh }}"></rect>
+            <rect class="bar claude" x="{{ x }}" y="{{ padT + plotH - sh - ch }}"   width="{{ bw }}" height="{{ ch }}"></rect>
+            {% if loop.index0 % 2 == 0 %}
+              <text class="axis" x="{{ x + bw/2 }}" y="{{ H - 8 }}" text-anchor="middle">{{ d.day[5:] }}</text>
+            {% endif %}
+          {% endfor %}
+        </svg>
+        <div style="margin-top:10px">
+          <span class="pill surge">surge</span>
+          <span class="pill claude" style="margin-left:6px">claude</span>
+        </div>
+      {% endif %}
+    </section>
+
+    <section class="panel">
+      <h2>Per-day average quality (0-1, combined)</h2>
+      <div class="desc">
+        Combined score = 0.7 &middot; rubric/10 + 0.3 &middot; telemetry.
+        1.0 is best.
+      </div>
+      {% if daily|length == 0 %}
+        <div class="empty">No scored responses in the window.</div>
+      {% else %}
+        {% set W = 720 %}
+        {% set H = 220 %}
+        {% set padL = 36 %}
+        {% set padR = 12 %}
+        {% set padT = 8 %}
+        {% set padB = 28 %}
+        {% set plotW = W - padL - padR %}
+        {% set plotH = H - padT - padB %}
+        {% set step = (plotW / (daily|length)) if daily|length > 0 else 0 %}
+        {% set pts = [] %}
+        {% for d in daily %}
+          {% set x = padL + (loop.index0 + 0.5) * step %}
+          {% set y = padT + plotH - d.avg_combined * plotH %}
+          {% set _ = pts.append("%.1f,%.1f"|format(x, y)) %}
+        {% endfor %}
+        <svg class="chart" viewBox="0 0 {{ W }} {{ H }}" width="100%" height="{{ H }}" role="img" aria-label="per-day avg combined score">
+          <g class="grid">
+            {% for tick in [0.0, 0.25, 0.5, 0.75, 1.0] %}
+              {% set y = padT + plotH - tick * plotH %}
+              <line x1="{{ padL }}" x2="{{ W - padR }}" y1="{{ y }}" y2="{{ y }}"/>
+              <text x="{{ padL - 6 }}" y="{{ y + 3 }}" text-anchor="end">{{ "%.2f"|format(tick) }}</text>
+            {% endfor %}
+          </g>
+          <polyline class="line" points="{{ pts|join(' ') }}"/>
+          {% for d in daily %}
+            {% set x = padL + (loop.index0 + 0.5) * step %}
+            {% set y = padT + plotH - d.avg_combined * plotH %}
+            <circle cx="{{ x }}" cy="{{ y }}" r="3" fill="#0B4F8A"></circle>
+            {% if loop.index0 % 2 == 0 %}
+              <text class="axis" x="{{ x }}" y="{{ H - 8 }}" text-anchor="middle">{{ d.day[5:] }}</text>
+            {% endif %}
+          {% endfor %}
+        </svg>
+      {% endif %}
+    </section>
+  </div>
+
+  {# --- Topic breakdown ----------------------------------------------- #}
+  <section class="panel">
+    <h2>Topic-area breakdown</h2>
+    <div class="desc">
+      Topics seen by the routing engine in the last {{ window_days }}d,
+      ordered by volume. Average rubric composite (0-10) shown per topic.
+    </div>
+    {% if topics|length == 0 %}
+      <div class="empty">No routing decisions in the window.</div>
+    {% else %}
+      <table>
+        <thead>
+          <tr>
+            <th>topic</th>
+            <th class="num">turns</th>
+            <th class="num">avg rubric composite</th>
+            <th>signal</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for t in topics %}
+            <tr>
+              <td>{{ t.topic }}</td>
+              <td class="num">{{ t.n }}</td>
+              <td class="num">{{ "%.2f"|format(t.avg_composite) }}</td>
+              <td>
+                {% if t.avg_composite >= 7.0 %}
+                  <span class="pill">healthy</span>
+                {% elif t.avg_composite >= 5.0 %}
+                  <span class="pill claude">watch</span>
+                {% else %}
+                  <span class="pill warn">teach</span>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% endif %}
+  </section>
+
+  {# --- Low-score replay ---------------------------------------------- #}
+  <section class="panel">
+    <h2>Low-score replay (composite &lt; {{ "%.2f"|format(claude_review_threshold) }})</h2>
+    <div class="desc">
+      Most recent low-scoring turns. Click the response_id to fetch the
+      full rubric via the scoring API.
+    </div>
+    {% if low_scores|length == 0 %}
+      <div class="empty">No responses below threshold — Surge is on the rails.</div>
+    {% else %}
+      <table>
+        <thead>
+          <tr>
+            <th>response_id</th>
+            <th>conversation</th>
+            <th class="num">composite</th>
+            <th class="num">combined</th>
+            <th>model</th>
+            <th>generated_at</th>
+            <th>snippet</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in low_scores %}
+            <tr>
+              <td class="num">
+                <a href="/v1/quality/score-response/{{ r.response_id }}">{{ r.response_id }}</a>
+              </td>
+              <td>{{ r.conversation_id }}</td>
+              <td class="num">{{ "%.2f"|format(r.composite) }}</td>
+              <td class="num">{{ "%.2f"|format(r.combined) }}</td>
+              <td>{{ r.model_used }}</td>
+              <td>{{ r.generated_at }}</td>
+              <td class="snippet" title="{{ r.snippet }}">{{ r.snippet }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% endif %}
+  </section>
+
+</main>
+
+<footer>
+  surge-quality &middot; today = {{ today }} &middot; read-only operator
+  view &middot; data source: surge_brain.surge_quality schema
+</footer>
+</body>
+</html>

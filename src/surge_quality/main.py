@@ -5,7 +5,8 @@ Endpoints:
 - PR-3: /v1/quality/score-response (POST + GET)
 - PR-4: /v1/quality/telemetry (POST)
 - PR-5: scoring API triggers Claude reviewer background task
-- PR-6 (this commit): /v1/quality/route-decision (POST)
+- PR-6: /v1/quality/route-decision (POST)
+- PR-7 (this commit): /v1/quality/dashboard (HTML), /v1/quality/dashboard/metrics (JSON)
 """
 
 from __future__ import annotations
@@ -16,6 +17,7 @@ from typing import Any
 from fastapi import FastAPI
 from sqlalchemy import text
 
+from surge_quality.api import dashboard as dashboard_api
 from surge_quality.api import routing as routing_api
 from surge_quality.api import scoring as scoring_api
 from surge_quality.api import telemetry as telemetry_api
@@ -45,6 +47,7 @@ def create_app() -> FastAPI:
     app.include_router(scoring_api.router)
     app.include_router(telemetry_api.router)
     app.include_router(routing_api.router)
+    app.include_router(dashboard_api.router)
 
     @app.get("/healthz", tags=["ops"])
     def healthz() -> dict[str, str]:

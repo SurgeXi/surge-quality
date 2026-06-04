@@ -1,7 +1,7 @@
 """Scoring API: POST + GET /v1/quality/score-response.
 
-Sync mode for the MVP — the Hermes call blocks the request. PR-5 introduces
-the async background trigger; an async task queue lives post-MVP.
+PR-5 update: after a successful score, optionally schedule a Claude
+review when the composite falls below the configured threshold.
 """
 
 from __future__ import annotations
@@ -9,14 +9,16 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from surge_quality.api.auth import require_service_token
 from surge_quality.db import get_db
 from surge_quality.models import Response, RubricScore
+from surge_quality.reviewer.worker import maybe_trigger_review
 from surge_quality.scoring.service import ResponseNotFound, score_response
+from surge_quality.settings import get_settings
 
 router = APIRouter(prefix="/v1/quality", tags=["scoring"])
 
@@ -25,14 +27,9 @@ router = APIRouter(prefix="/v1/quality", tags=["scoring"])
 
 
 class ScoreResponseIn(BaseModel):
-    """Body for POST /v1/quality/score-response.
-
-    Either ``response_id`` (score an already-captured response) OR
-    ``response_text`` + companion fields (capture-and-score in one call).
-    """
+    """Body for POST /v1/quality/score-response."""
 
     response_id: int | None = Field(default=None, description="existing Response.id")
-    # capture-on-the-fly fields (used if response_id is None)
     conversation_id: str | None = Field(default=None)
     response_text: str | None = Field(default=None)
     model_used: str | None = Field(default=None)
@@ -52,6 +49,7 @@ class RubricOut(BaseModel):
     justification: str
     scorer_model: str
     scored_at: datetime
+    review_scheduled: bool = False
 
 
 # --- endpoints --------------------------------------------------------------
@@ -63,9 +61,10 @@ class RubricOut(BaseModel):
     dependencies=[Depends(require_service_token)],
 )
 async def post_score_response(
-    body: ScoreResponseIn, db: Session = Depends(get_db)
+    body: ScoreResponseIn,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
 ) -> RubricOut:
-    # Capture-on-the-fly if response_id not provided.
     if body.response_id is None:
         if not (body.response_text and body.model_used and body.conversation_id):
             raise HTTPException(
@@ -94,6 +93,25 @@ async def post_score_response(
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
     row = db.query(RubricScore).filter_by(id=result.persisted_row_id).one()
+
+    # If composite is below threshold AND a key is configured, schedule the
+    # Claude reviewer as a background task. We use FastAPI's BackgroundTasks
+    # rather than asyncio.create_task because it ties the lifecycle to the
+    # request (cleaner for tests + observability).
+    settings = get_settings()
+    review_scheduled = False
+    if (
+        row.composite < settings.claude_review_threshold
+        and settings.anthropic_api_key
+    ):
+        background_tasks.add_task(
+            maybe_trigger_review,
+            response_id,
+            row.composite,
+            customer_message=body.customer_message,
+        )
+        review_scheduled = True
+
     return RubricOut(
         response_id=response_id,
         rubric_score_id=row.id,
@@ -102,6 +120,7 @@ async def post_score_response(
         justification=result.parsed.justification,
         scorer_model=row.scorer_model,
         scored_at=row.scored_at,
+        review_scheduled=review_scheduled,
     )
 
 
@@ -137,4 +156,5 @@ def get_score_response(response_id: int, db: Session = Depends(get_db)) -> Rubri
         justification=str(parsed.get("justification", "")) or "(no justification recorded)",
         scorer_model=row.scorer_model,
         scored_at=row.scored_at,
+        review_scheduled=False,
     )

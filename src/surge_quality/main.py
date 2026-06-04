@@ -2,8 +2,8 @@
 
 Endpoints land here incrementally:
 - PR-2: /healthz, /readyz
-- PR-3 (this commit): /v1/quality/score-response (POST + GET)
-- PR-4: /v1/quality/telemetry
+- PR-3: /v1/quality/score-response (POST + GET)
+- PR-4 (this commit): /v1/quality/telemetry (POST)
 - PR-5: triggered by PR-3 worker, no new endpoint
 - PR-6: /v1/quality/route-decision
 """
@@ -17,15 +17,13 @@ from fastapi import FastAPI
 from sqlalchemy import text
 
 from surge_quality.api import scoring as scoring_api
+from surge_quality.api import telemetry as telemetry_api
 from surge_quality.db import SessionLocal
 from surge_quality.settings import get_settings
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):  # noqa: ARG001 — FastAPI signature
-    """Startup/shutdown hook. Nothing heavy on boot — DB readiness is
-    checked lazily via /readyz so the process starts even if PG is
-    momentarily unavailable."""
     yield
 
 
@@ -44,15 +42,14 @@ def create_app() -> FastAPI:
     )
 
     app.include_router(scoring_api.router)
+    app.include_router(telemetry_api.router)
 
     @app.get("/healthz", tags=["ops"])
     def healthz() -> dict[str, str]:
-        """Process liveness. Always 200 if the event loop is alive."""
         return {"status": "ok", "service": settings.service_name}
 
     @app.get("/readyz", tags=["ops"])
     def readyz() -> dict[str, Any]:
-        """Readiness: Postgres reachable + correct schema exists."""
         checks: dict[str, Any] = {}
         try:
             with SessionLocal() as db:
@@ -66,7 +63,7 @@ def create_app() -> FastAPI:
                 ).first()
             checks["db"] = "ok"
             checks["schema"] = "ok" if schema_exists else "missing"
-        except Exception as exc:  # noqa: BLE001 — health surface
+        except Exception as exc:  # noqa: BLE001
             checks["db"] = f"error: {exc.__class__.__name__}"
             checks["schema"] = "unknown"
 

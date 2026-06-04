@@ -1,8 +1,8 @@
 """surge-quality FastAPI app factory.
 
 Endpoints land here incrementally:
-- PR-2 (this commit): /healthz, /readyz
-- PR-3: /v1/quality/score-response (POST + GET)
+- PR-2: /healthz, /readyz
+- PR-3 (this commit): /v1/quality/score-response (POST + GET)
 - PR-4: /v1/quality/telemetry
 - PR-5: triggered by PR-3 worker, no new endpoint
 - PR-6: /v1/quality/route-decision
@@ -16,6 +16,7 @@ from typing import Any
 from fastapi import FastAPI
 from sqlalchemy import text
 
+from surge_quality.api import scoring as scoring_api
 from surge_quality.db import SessionLocal
 from surge_quality.settings import get_settings
 
@@ -41,6 +42,8 @@ def create_app() -> FastAPI:
         ),
         lifespan=lifespan,
     )
+
+    app.include_router(scoring_api.router)
 
     @app.get("/healthz", tags=["ops"])
     def healthz() -> dict[str, str]:

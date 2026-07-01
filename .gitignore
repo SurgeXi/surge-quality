@@ -39,3 +39,11 @@ secrets/
 # Local data
 *.sqlite
 *.db
+
+# Bare .env (the *.env glob above does NOT match a file literally named .env)
+.env
+!.env.example
+*.key
+*.pem
+/data
+/models

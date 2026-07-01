@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Copyright © 2026 SurgeXi Business Intelligence, a Teamsmith Enterprises LLC company. All Rights Reserved.
 # smoke-dashboard.sh — headless-browser visual smoke for the dashboard.
 #
 # Hits the dashboard route with a real browser, dumps a PNG to disk, and

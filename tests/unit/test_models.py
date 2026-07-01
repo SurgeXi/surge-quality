@@ -1,3 +1,4 @@
+# Copyright © 2026 SurgeXi Business Intelligence, a Teamsmith Enterprises LLC company. All Rights Reserved.
 """Round-trip + index sanity tests for the surge_quality ORM models.
 
 Uses a real Postgres connection (the same surgecore Postgres used in

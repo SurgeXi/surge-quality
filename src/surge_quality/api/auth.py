@@ -1,3 +1,4 @@
+# Copyright © 2026 SurgeXi Business Intelligence, a Teamsmith Enterprises LLC company. All Rights Reserved.
 """Phase-A service-token auth.
 
 The Surge Orchestration Layer (SOL) Phase 3.4 will issue JWTs that this

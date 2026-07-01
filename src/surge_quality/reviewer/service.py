@@ -1,3 +1,4 @@
+# Copyright © 2026 SurgeXi Business Intelligence, a Teamsmith Enterprises LLC company. All Rights Reserved.
 """Reviewer service: take a low-scoring Response, ask the LLM reviewer, persist the result.
 
 Triggered from the scoring service when ``composite < settings.llm_review_threshold``.

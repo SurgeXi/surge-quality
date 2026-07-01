@@ -1,3 +1,4 @@
+# Copyright © 2026 SurgeXi Business Intelligence, a Teamsmith Enterprises LLC company. All Rights Reserved.
 """Async httpx client for the surge-ai Hermes endpoint.
 
 The scoring backend runs Ollama with the Hermes 3 8B model (GPU

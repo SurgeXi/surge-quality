@@ -1,3 +1,4 @@
+# Copyright © 2026 SurgeXi Business Intelligence, a Teamsmith Enterprises LLC company. All Rights Reserved.
 """LLM reviewer prompt templates.
 
 The reviewer's job is to be the senior partner that fixes + teaches.

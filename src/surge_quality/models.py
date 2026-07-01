@@ -1,3 +1,4 @@
+# Copyright © 2026 SurgeXi Business Intelligence, a Teamsmith Enterprises LLC company. All Rights Reserved.
 """SQLAlchemy ORM models for surge-quality.
 
 The five tables match the Alembic migrations 0001-0005 row-for-row. Keeping

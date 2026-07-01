@@ -1,3 +1,4 @@
+# Copyright © 2026 SurgeXi Business Intelligence, a Teamsmith Enterprises LLC company. All Rights Reserved.
 """Health endpoints smoke — no DB required for /healthz."""
 
 from __future__ import annotations

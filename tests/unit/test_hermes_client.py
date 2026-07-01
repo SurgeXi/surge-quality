@@ -1,3 +1,4 @@
+# Copyright © 2026 SurgeXi Business Intelligence, a Teamsmith Enterprises LLC company. All Rights Reserved.
 """Hermes client unit tests against a mocked Ollama endpoint."""
 
 from __future__ import annotations

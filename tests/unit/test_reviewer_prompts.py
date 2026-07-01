@@ -1,3 +1,4 @@
+# Copyright © 2026 SurgeXi Business Intelligence, a Teamsmith Enterprises LLC company. All Rights Reserved.
 """Unit tests for reviewer prompt rendering + parser."""
 
 from __future__ import annotations

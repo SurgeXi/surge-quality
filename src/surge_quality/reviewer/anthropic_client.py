@@ -1,3 +1,4 @@
+# Copyright © 2026 SurgeXi Business Intelligence, a Teamsmith Enterprises LLC company. All Rights Reserved.
 """Anthropic SDK wrapper for the LLM-as-teacher reviewer.
 
 We use the async client so the reviewer can be invoked from inside an

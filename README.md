@@ -1,3 +1,4 @@
+<!-- Copyright © 2026 SurgeXi Business Intelligence, a Teamsmith Enterprises LLC company. All Rights Reserved. -->
 # surge-quality
 
 > A quality-measurement and routing layer for LLM assistants — score every response on a rubric, fold in real user signals, and route the next turn to the model that can handle it.
@@ -113,5 +114,6 @@ the evidence accumulates.
 - [ ] Exportable training-data bundles from the teacher loop
 
 ## License
+© 2026 SurgeXi Business Intelligence, a Teamsmith Enterprises LLC company. All Rights Reserved.
+Source-available for evaluation only — see LICENSE.
 
-MIT — © 2026 Todd Smith. See [LICENSE](LICENSE).

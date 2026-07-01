@@ -1,3 +1,4 @@
+# Copyright © 2026 SurgeXi Business Intelligence, a Teamsmith Enterprises LLC company. All Rights Reserved.
 """Visual-smoke entrypoint test.
 
 This test is the PR-10 deliverable: it asserts the smoke shell script

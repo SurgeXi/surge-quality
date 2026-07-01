@@ -1,3 +1,4 @@
+# Copyright © 2026 SurgeXi Business Intelligence, a Teamsmith Enterprises LLC company. All Rights Reserved.
 """Parse the Hermes JSON output into a structured RubricScore record.
 
 The Hermes JSON is best-effort — we tolerate the model omitting an axis

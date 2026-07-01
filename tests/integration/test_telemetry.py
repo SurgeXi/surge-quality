@@ -1,3 +1,4 @@
+# Copyright © 2026 SurgeXi Business Intelligence, a Teamsmith Enterprises LLC company. All Rights Reserved.
 """Telemetry endpoint integration tests against the real surgecore Postgres."""
 
 from __future__ import annotations

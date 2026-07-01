@@ -1,3 +1,4 @@
+# Copyright © 2026 SurgeXi Business Intelligence, a Teamsmith Enterprises LLC company. All Rights Reserved.
 """Unit tests for similarity scoring. Pure, no I/O."""
 
 from __future__ import annotations

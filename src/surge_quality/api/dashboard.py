@@ -1,3 +1,4 @@
+# Copyright © 2026 SurgeXi Business Intelligence, a Teamsmith Enterprises LLC company. All Rights Reserved.
 """Operator dashboard — server-side Jinja2 render.
 
 This is the Jinja2 fallback dashboard called out in the PR-7 plan. It

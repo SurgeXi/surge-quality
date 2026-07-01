@@ -1,3 +1,4 @@
+# Copyright © 2026 SurgeXi Business Intelligence, a Teamsmith Enterprises LLC company. All Rights Reserved.
 """SQLAlchemy engine + session factory.
 
 All ORM models bind to ``MetaData(schema=settings.db_schema)`` so DDL +

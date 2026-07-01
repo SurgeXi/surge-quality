@@ -1,3 +1,4 @@
+# Copyright © 2026 SurgeXi Business Intelligence, a Teamsmith Enterprises LLC company. All Rights Reserved.
 """routing_decisions table — read-only routing advice ledger
 
 Revision ID: 0005

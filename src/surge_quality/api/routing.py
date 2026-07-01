@@ -1,3 +1,4 @@
+# Copyright © 2026 SurgeXi Business Intelligence, a Teamsmith Enterprises LLC company. All Rights Reserved.
 """Routing API: POST /v1/quality/route-decision.
 
 READ-ONLY contract: returns advice + persists the decision row for audit.

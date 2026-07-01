@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "surge-quality"
 version = "0.1.0"
-description = "SurgeXi Quality recommender — rubric scoring, telemetry, Claude-as-teacher, routing decisions"
+description = "SurgeXi Quality recommender — rubric scoring, telemetry, LLM-as-teacher, routing decisions"
 requires-python = ">=3.12,<3.13"
 license = { file = "LICENSE" }
 authors = [{ name = "SurgeXi", email = "ops@surgexi.com" }]

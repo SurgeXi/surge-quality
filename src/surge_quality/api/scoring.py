@@ -1,3 +1,4 @@
+# Copyright © 2026 SurgeXi Business Intelligence, a Teamsmith Enterprises LLC company. All Rights Reserved.
 """Scoring API: POST + GET /v1/quality/score-response.
 
 PR-5 update: after a successful score, optionally schedule a the LLM reviewer

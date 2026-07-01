@@ -1,3 +1,4 @@
+<!-- Copyright © 2026 SurgeXi Business Intelligence, a Teamsmith Enterprises LLC company. All Rights Reserved. -->
 # Dashboard smoke screenshots
 
 This directory holds PNGs produced by `deploy/smoke-dashboard.sh` as

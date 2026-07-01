@@ -1,3 +1,4 @@
+# Copyright © 2026 SurgeXi Business Intelligence, a Teamsmith Enterprises LLC company. All Rights Reserved.
 """Integration test: full score_response orchestration against a mocked Hermes.
 
 Uses the real Postgres-backed Session (via the same fixture pattern as

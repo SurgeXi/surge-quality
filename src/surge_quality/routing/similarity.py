@@ -1,3 +1,4 @@
+# Copyright © 2026 SurgeXi Business Intelligence, a Teamsmith Enterprises LLC company. All Rights Reserved.
 """Similarity scoring between incoming messages and past low-score turns.
 
 We use a simple token-overlap (Jaccard-on-shingles) measure rather than

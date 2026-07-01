@@ -1,3 +1,4 @@
+# Copyright © 2026 SurgeXi Business Intelligence, a Teamsmith Enterprises LLC company. All Rights Reserved.
 """Telemetry capture endpoint.
 
 PulsePoint widget POSTs customer signals to this endpoint when the user:

@@ -1,3 +1,4 @@
+# Copyright © 2026 SurgeXi Business Intelligence, a Teamsmith Enterprises LLC company. All Rights Reserved.
 """Parse the LLM reviewer's JSON into a structured ParsedReview.
 
 the LLM reviewer is usually well-behaved with JSON but occasionally wraps the

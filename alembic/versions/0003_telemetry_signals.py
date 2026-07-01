@@ -1,3 +1,4 @@
+# Copyright © 2026 SurgeXi Business Intelligence, a Teamsmith Enterprises LLC company. All Rights Reserved.
 """telemetry_signals table — customer-facing signals per response
 
 Revision ID: 0003

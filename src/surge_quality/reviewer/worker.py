@@ -1,3 +1,4 @@
+# Copyright © 2026 SurgeXi Business Intelligence, a Teamsmith Enterprises LLC company. All Rights Reserved.
 """Async background trigger that runs the LLM reviewer when a rubric score
 crosses the low-threshold defined in settings.llm_review_threshold.
 

@@ -1,3 +1,4 @@
+<!-- Copyright © 2026 SurgeXi Business Intelligence, a Teamsmith Enterprises LLC company. All Rights Reserved. -->
 # surge-quality dashboards
 
 Two operator dashboards ship in this repo. They render the same metrics

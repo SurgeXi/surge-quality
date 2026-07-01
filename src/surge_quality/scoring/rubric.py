@@ -1,3 +1,4 @@
+# Copyright © 2026 SurgeXi Business Intelligence, a Teamsmith Enterprises LLC company. All Rights Reserved.
 """Rubric prompt template + axis definitions.
 
 The 10 axes (per docs/PLAN.md §1) are scored 0-10 by the Hermes scorer.

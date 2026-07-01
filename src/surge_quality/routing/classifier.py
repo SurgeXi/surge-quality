@@ -1,3 +1,4 @@
+# Copyright © 2026 SurgeXi Business Intelligence, a Teamsmith Enterprises LLC company. All Rights Reserved.
 """Routing classifier — input message + context → routing advice.
 
 Per docs/PLAN.md §5, the output is one of:

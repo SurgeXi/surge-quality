@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Copyright © 2026 SurgeXi Business Intelligence, a Teamsmith Enterprises LLC company. All Rights Reserved.
 # install.sh — provision the surge-quality dashboard into a Grafana node.
 #
 # Idempotent. Run on a host that already has Grafana installed and the

@@ -1,3 +1,4 @@
+# Copyright © 2026 SurgeXi Business Intelligence, a Teamsmith Enterprises LLC company. All Rights Reserved.
 """Integration test for /v1/quality/dashboard against a real surge_brain DB.
 
 Gated on DATABASE_URL reachability so the suite is still green on a

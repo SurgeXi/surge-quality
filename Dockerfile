@@ -1,3 +1,4 @@
+# Copyright © 2026 SurgeXi Business Intelligence, a Teamsmith Enterprises LLC company. All Rights Reserved.
 # Multi-stage build: surge-quality recommender service
 # Stage 1: build wheels
 FROM python:3.12-slim AS builder

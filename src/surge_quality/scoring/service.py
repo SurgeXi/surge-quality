@@ -1,3 +1,4 @@
+# Copyright © 2026 SurgeXi Business Intelligence, a Teamsmith Enterprises LLC company. All Rights Reserved.
 """Scoring service orchestration.
 
 ``score_response`` is the top-level call used by the API and (later) the

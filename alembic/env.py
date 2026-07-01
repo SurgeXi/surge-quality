@@ -1,3 +1,4 @@
+# Copyright © 2026 SurgeXi Business Intelligence, a Teamsmith Enterprises LLC company. All Rights Reserved.
 """Alembic env. Loads DB URL from surge_quality.settings, binds metadata
 from surge_quality.db.Base. All migrations live under surge_quality schema."""
 

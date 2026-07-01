@@ -1,3 +1,4 @@
+# Copyright © 2026 SurgeXi Business Intelligence, a Teamsmith Enterprises LLC company. All Rights Reserved.
 """claude_reviews table — Claude's teacher feedback for low-scoring turns
 
 Revision ID: 0004

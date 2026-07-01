@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Copyright © 2026 SurgeXi Business Intelligence, a Teamsmith Enterprises LLC company. All Rights Reserved.
 # install-systemd.sh — install the PR-9 hardened systemd unit.
 #
 # Idempotent. Run as root on a host where surge-quality is already

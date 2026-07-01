@@ -65,7 +65,7 @@ def test_dashboard_metrics_json_shape(client: TestClient) -> None:
         "generated_at",
         "today",
         "window_days",
-        "claude_review_threshold",
+        "llm_review_threshold",
         "daily",
         "topics",
         "low_scores",
@@ -81,5 +81,5 @@ def test_dashboard_metrics_daily_shape(client: TestClient) -> None:
     r = client.get("/v1/quality/dashboard/metrics")
     assert r.status_code == 200
     day = r.json()["daily"][0]
-    for key in ("day", "surge_share_pct", "claude_share_pct", "avg_combined", "n_responses"):
+    for key in ("day", "surge_share_pct", "llm_share_pct", "avg_combined", "n_responses"):
         assert key in day

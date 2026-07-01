@@ -13,13 +13,13 @@ Endpoints
     Grafana panels use:
         1. Per-day Surge share (% of scored responses where
            ``responses.model_used`` matches the ``surge_*`` family, vs
-           Claude). Last 14 days.
+           the LLM reviewer). Last 14 days.
         2. Per-day average combined quality score (rubric composite
            normalized 0-1 + telemetry contribution). Last 14 days.
         3. Topic-area breakdown — bucket by the routing-decision
            ``factors_json -> topic`` when present, else "(unclassified)".
         4. Low-score replay — last 25 responses where composite <
-           ``claude_review_threshold``; each row links to its underlying
+           ``llm_review_threshold``; each row links to its underlying
            JSON via the existing scoring API.
 
 ``GET /v1/quality/dashboard/metrics``
@@ -51,7 +51,7 @@ Read-only — no writes, no side-effects. Safe to expose.
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -95,7 +95,7 @@ class DayBucket:
 
     day: str
     surge_share_pct: float
-    claude_share_pct: float
+    llm_share_pct: float
     avg_combined: float
     n_responses: int
 
@@ -119,8 +119,8 @@ class LowScoreRow:
 
 
 # --- Phase B panels ---------------------------------------------------------
-# Locked design: see project_pulsepoint_design_decisions §Sequencing →
-# Phase B. While Phase B is live, Claude continues to serve customers
+# Shadow-mode corpus panels: acceptance vs negative corpus over shadow
+# Phase B. While Phase B is live, the LLM continues to serve customers
 # and Surge generates parallel "shadow" responses that we score but do
 # not deliver. These dataclasses are the JSON-friendly payload for the
 # Phase B-specific panels rendered alongside (not in place of) the
@@ -134,17 +134,17 @@ class LowScoreRow:
 #                             to shadow rows only — answers "where is
 #                             shadow Surge doing well vs needs work?"
 #   shadow_corpus_summary  — acceptance corpus size (high-score shadow
-#                             rows where the Claude reviewer did NOT
+#                             rows where the LLM reviewer did NOT
 #                             fire) + negative corpus size (rows where
-#                             it did) + current Claude reviewer queue
+#                             it did) + current LLM reviewer queue
 #                             depth (proxy: rows scheduled-but-unposted,
 #                             i.e. composite < threshold AND no
 #                             claude_reviews row yet).
 #
 # Acceptance threshold is the inverse of the negative threshold:
-# anything at-or-above ``claude_review_threshold`` is "Surge handled it
-# well enough that Claude was NOT pulled in." Anything below that
-# triggered the Claude teacher loop. The numbers compose so accept +
+# anything at-or-above ``llm_review_threshold`` is "Surge handled it
+# well enough that the LLM reviewer was NOT pulled in." Anything below that
+# triggered the LLM teacher loop. The numbers compose so accept +
 # negative = total scored shadow rows in the window.
 
 
@@ -160,14 +160,14 @@ class ShadowTrendPoint:
 @dataclass(slots=True)
 class ShadowCorpusSummary:
     """Top-line Phase B numbers: how big is the acceptance corpus, how
-    big is the negative corpus, how deep is the Claude reviewer queue.
+    big is the negative corpus, how deep is the LLM reviewer queue.
     """
 
     window_days: int
     total_shadow_responses: int
     acceptance_corpus_size: int       # rows at-or-above review threshold
     negative_corpus_size: int          # rows below review threshold
-    claude_reviewer_queue_depth: int   # below threshold + no review row yet
+    llm_reviewer_queue_depth: int   # below threshold + no review row yet
     acceptance_growth_last_7d: int     # net new acceptance rows in last 7d
     avg_composite_overall: float       # window mean composite
 
@@ -279,7 +279,7 @@ def _query_daily(db: Session, schema: str, days: int = 14) -> list[DayBucket]:
         SELECT
             d.day,
             COALESCE(SUM(CASE WHEN s.model_used ILIKE '%claude%' THEN 0 ELSE 1 END), 0) AS surge_n,
-            COALESCE(SUM(CASE WHEN s.model_used ILIKE '%claude%' THEN 1 ELSE 0 END), 0) AS claude_n,
+            COALESCE(SUM(CASE WHEN s.model_used ILIKE '%claude%' THEN 1 ELSE 0 END), 0) AS llm_n,
             COUNT(s.id) AS n,
             AVG(s.composite) AS avg_composite,
             AVG(s.telem_raw) AS avg_telem_raw
@@ -294,14 +294,14 @@ def _query_daily(db: Session, schema: str, days: int = 14) -> list[DayBucket]:
     for row in rows:
         n = int(row.n or 0)
         surge_n = int(row.surge_n or 0)
-        claude_n = int(row.claude_n or 0)
+        llm_n = int(row.llm_n or 0)
         # If we have no rows for the day, share defaults to 0/0.
         if n == 0:
-            surge_pct = claude_pct = 0.0
+            surge_pct = llm_pct = 0.0
             combined = 0.0
         else:
             surge_pct = round(100.0 * surge_n / n, 2)
-            claude_pct = round(100.0 * claude_n / n, 2)
+            llm_pct = round(100.0 * llm_n / n, 2)
             avg_telem_raw = row.avg_telem_raw
             if avg_telem_raw is None:
                 telem_unit = 0.5
@@ -313,7 +313,7 @@ def _query_daily(db: Session, schema: str, days: int = 14) -> list[DayBucket]:
             DayBucket(
                 day=row.day.isoformat(),
                 surge_share_pct=surge_pct,
-                claude_share_pct=claude_pct,
+                llm_share_pct=llm_pct,
                 avg_combined=combined,
                 n_responses=n,
             )
@@ -453,13 +453,13 @@ def _query_shadow_trend(db: Session, schema: str, days: int = 14) -> list[Shadow
 def _query_shadow_corpus_summary(
     db: Session, schema: str, threshold: float, days: int = 14
 ) -> ShadowCorpusSummary:
-    """Acceptance corpus + negative corpus + Claude reviewer queue depth.
+    """Acceptance corpus + negative corpus + LLM reviewer queue depth.
 
     All three numbers are derived from the same window so they compose:
     accept + negative = total in window. Queue depth is a forward-looking
-    count: rows below threshold that DO NOT YET have a Claude review row
+    count: rows below threshold that DO NOT YET have a LLM review row
     written — i.e. the reviewer hasn't caught up. A growing queue depth
-    is the operator's leading signal that the Anthropic backend is
+    is the operator's leading signal that the LLM backend is
     saturated or rate-limited.
     """
     sql = text(
@@ -498,7 +498,7 @@ def _query_shadow_corpus_summary(
         total_shadow_responses=int(row.total or 0),
         acceptance_corpus_size=int(row.accept or 0),
         negative_corpus_size=int(row.negative or 0),
-        claude_reviewer_queue_depth=int(row.queue_depth or 0),
+        llm_reviewer_queue_depth=int(row.queue_depth or 0),
         acceptance_growth_last_7d=int(row.accept_7d or 0),
         avg_composite_overall=round(float(row.avg_composite or 0.0), 2),
     )
@@ -550,12 +550,12 @@ def _build_metrics(db: Session) -> dict[str, Any]:
     schema = settings.db_schema
     daily = _query_daily(db, schema)
     topics = _query_topics(db, schema)
-    low = _query_low_scores(db, schema, threshold=settings.claude_review_threshold)
+    low = _query_low_scores(db, schema, threshold=settings.llm_review_threshold)
     # Phase B panels — see ShadowTrendPoint / ShadowCorpusSummary
     # dataclass docstrings for the panel-by-panel rationale.
     shadow_trend = _query_shadow_trend(db, schema)
     shadow_corpus = _query_shadow_corpus_summary(
-        db, schema, threshold=settings.claude_review_threshold
+        db, schema, threshold=settings.llm_review_threshold
     )
     shadow_topics = _query_shadow_topics(db, schema)
     today: date = datetime.now(timezone.utc).date()
@@ -563,7 +563,7 @@ def _build_metrics(db: Session) -> dict[str, Any]:
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "today": today.isoformat(),
         "window_days": 14,
-        "claude_review_threshold": settings.claude_review_threshold,
+        "llm_review_threshold": settings.llm_review_threshold,
         "daily": [asdict(d) for d in daily],
         "topics": [asdict(t) for t in topics],
         "low_scores": [

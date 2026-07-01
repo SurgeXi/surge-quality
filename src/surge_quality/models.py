@@ -17,7 +17,6 @@ from sqlalchemy import (
     Float,
     ForeignKey,
     Index,
-    Integer,
     String,
     Text,
     UniqueConstraint,
@@ -61,8 +60,8 @@ class Response(Base):
     telemetry: Mapped[list["TelemetrySignal"]] = relationship(
         "TelemetrySignal", back_populates="response", cascade="all, delete-orphan"
     )
-    claude_review: Mapped["ClaudeReview | None"] = relationship(
-        "ClaudeReview", back_populates="response", uselist=False, cascade="all, delete-orphan"
+    llm_review: Mapped["LlmReview | None"] = relationship(
+        "LlmReview", back_populates="response", uselist=False, cascade="all, delete-orphan"
     )
 
     __table_args__ = (
@@ -157,11 +156,11 @@ class TelemetrySignal(Base):
     )
 
 
-# --- Claude reviews ---------------------------------------------------------
+# --- LLM reviews ---------------------------------------------------------
 
 
-class ClaudeReview(Base):
-    """Claude's teacher feedback for a low-scoring turn."""
+class LlmReview(Base):
+    """the LLM reviewer's teacher feedback for a low-scoring turn."""
 
     __tablename__ = "claude_reviews"
 
@@ -182,7 +181,7 @@ class ClaudeReview(Base):
     )
     triggered_by_score: Mapped[float] = mapped_column(Float, nullable=False)
 
-    response: Mapped[Response] = relationship("Response", back_populates="claude_review")
+    response: Mapped[Response] = relationship("Response", back_populates="llm_review")
 
 
 # --- Routing decisions ------------------------------------------------------

@@ -1,4 +1,4 @@
-"""Claude reviewer prompt templates.
+"""LLM reviewer prompt templates.
 
 The reviewer's job is to be the senior partner that fixes + teaches.
 Output is strict JSON: better_response, what_was_wrong, how_to_fix.
@@ -12,7 +12,7 @@ from typing import Any
 
 SYSTEM_PROMPT = dedent(
     """\
-    You are Claude, the senior partner reviewing an AI assistant ("Surge")
+    You are the senior partner reviewing an AI assistant ("Surge")
     response that scored poorly on a 10-axis rubric. Your role is the
     teacher / repairer: show what Surge SHOULD have said, explain what
     went wrong, and describe a concrete change Surge can apply next time
@@ -43,7 +43,7 @@ def render_user_prompt(
     telemetry_signals: list[dict[str, Any]] | None = None,
     identity_context: dict[str, Any] | None = None,
 ) -> str:
-    """Compose the per-call user prompt fed to Claude."""
+    """Compose the per-call user prompt fed to the LLM reviewer."""
     telemetry_block = ""
     if telemetry_signals:
         telemetry_block = (

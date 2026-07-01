@@ -1,6 +1,6 @@
-"""Reviewer service: take a low-scoring Response, ask Claude, persist the result.
+"""Reviewer service: take a low-scoring Response, ask the LLM reviewer, persist the result.
 
-Triggered from the scoring service when ``composite < settings.claude_review_threshold``.
+Triggered from the scoring service when ``composite < settings.llm_review_threshold``.
 """
 
 from __future__ import annotations
@@ -9,7 +9,7 @@ import logging
 
 from sqlalchemy.orm import Session
 
-from surge_quality.models import ClaudeReview, Response, RubricScore, TelemetrySignal
+from surge_quality.models import LlmReview, Response, RubricScore, TelemetrySignal
 from surge_quality.reviewer.anthropic_client import AnthropicClient
 from surge_quality.reviewer.parser import ParsedReview, parse_review_json
 from surge_quality.reviewer.prompts import SYSTEM_PROMPT, render_user_prompt
@@ -43,18 +43,18 @@ async def review_response(
     customer_message: str | None = None,
     client: AnthropicClient | None = None,
 ) -> ParsedReview:
-    """Produce a Claude review for the named response and persist it.
+    """Produce a LLM review for the named response and persist it.
 
     If a review already exists for that response_id, return the parsed
-    persisted record without re-calling Claude.
+    persisted record without re-calling the LLM reviewer.
     """
 
     settings = get_settings()
     if client is None:
         if not settings.anthropic_api_key:
             raise ReviewerNotConfigured(
-                "ANTHROPIC_API_KEY not set — Claude reviewer is disabled. "
-                "Install /etc/surge-quality/claude.env on the host and "
+                "ANTHROPIC_API_KEY not set — LLM reviewer is disabled. "
+                "Install /etc/surge-quality/provider.env on the host and "
                 "restart the service."
             )
         client = AnthropicClient(
@@ -62,7 +62,7 @@ async def review_response(
             model=settings.anthropic_model,
         )
 
-    existing = db.query(ClaudeReview).filter_by(response_id=response_id).one_or_none()
+    existing = db.query(LlmReview).filter_by(response_id=response_id).one_or_none()
     if existing is not None:
         return ParsedReview(
             better_response=existing.better_response,
@@ -105,7 +105,7 @@ async def review_response(
     parsed = parse_review_json(raw)
 
     db.add(
-        ClaudeReview(
+        LlmReview(
             response_id=response_id,
             better_response=parsed.better_response,
             what_was_wrong=parsed.what_was_wrong,

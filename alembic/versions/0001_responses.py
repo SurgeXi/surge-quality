@@ -4,7 +4,7 @@ Revision ID: 0001
 Revises:
 Create Date: 2026-06-03
 
-Per docs/PLAN.md §Postgres schema. Lives in the shared surge_brain DB
+Lives in the shared application Postgres cluster (surge_quality schema)
 under the ``surge_quality`` schema (created idempotently by env.py).
 """
 from __future__ import annotations

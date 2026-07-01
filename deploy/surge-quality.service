@@ -12,7 +12,7 @@ WorkingDirectory=/opt/surge-quality
 
 # Env files (root-owned, 0600). Provisioned out-of-band.
 EnvironmentFile=/etc/surge-quality/db.env
-EnvironmentFile=/etc/surge-quality/claude.env
+EnvironmentFile=/etc/surge-quality/provider.env
 EnvironmentFile=/etc/surge-quality/service-tokens.env
 Environment=SURGE_QUALITY_PORT=9311
 Environment=SURGE_QUALITY_HOST=127.0.0.1

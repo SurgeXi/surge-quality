@@ -1,4 +1,4 @@
-"""Anthropic SDK wrapper for the Claude-as-teacher reviewer.
+"""Anthropic SDK wrapper for the LLM-as-teacher reviewer.
 
 We use the async client so the reviewer can be invoked from inside an
 async FastAPI background task without blocking the event loop. The model
@@ -43,7 +43,7 @@ class AnthropicClient:
         *,
         cache_system: bool = True,
     ) -> str:
-        """Call Claude; return the raw text body. The caller parses JSON."""
+        """Call the LLM reviewer; return the raw text body. The caller parses JSON."""
         system_blocks: list[dict[str, Any]] = [
             {"type": "text", "text": system_prompt}
         ]

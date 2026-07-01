@@ -1,6 +1,6 @@
 """Scoring API: POST + GET /v1/quality/score-response.
 
-PR-5 update: after a successful score, optionally schedule a Claude
+PR-5 update: after a successful score, optionally schedule a the LLM reviewer
 review when the composite falls below the configured threshold.
 """
 
@@ -95,13 +95,13 @@ async def post_score_response(
     row = db.query(RubricScore).filter_by(id=result.persisted_row_id).one()
 
     # If composite is below threshold AND a key is configured, schedule the
-    # Claude reviewer as a background task. We use FastAPI's BackgroundTasks
+    # LLM reviewer as a background task. We use FastAPI's BackgroundTasks
     # rather than asyncio.create_task because it ties the lifecycle to the
     # request (cleaner for tests + observability).
     settings = get_settings()
     review_scheduled = False
     if (
-        row.composite < settings.claude_review_threshold
+        row.composite < settings.llm_review_threshold
         and settings.anthropic_api_key
     ):
         background_tasks.add_task(

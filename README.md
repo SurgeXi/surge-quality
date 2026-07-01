@@ -1,29 +1,117 @@
 # surge-quality
 
-Surge quality rubric + auto-scoring + customer telemetry. Measures how good Surge's responses are so we can gate the Claude→Surge takeover (per [PulsePoint design decisions](https://github.com/SurgeXi/.../memory/project_pulsepoint_design_decisions.md), Phase 5 Phase A prep).
+> A quality-measurement and routing layer for LLM assistants — score every response on a rubric, fold in real user signals, and route the next turn to the model that can handle it.
 
-**Status:** scaffolding — see `docs/PLAN.md` for the buildable spec and component breakdown.
+[![ci](https://github.com/SurgeXi/surge-quality/actions/workflows/ci.yml/badge.svg)](https://github.com/SurgeXi/surge-quality/actions/workflows/ci.yml)
+[![license](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![python](https://img.shields.io/badge/python-3.12-blue.svg)](pyproject.toml)
 
-## What this is
-
-Without this infrastructure, Phase 5 (Surge takes customer-facing replies) is unmeasurable; we can't tell if Surge is keeping up with Claude's quality bar. This service:
-
-1. **Scores every Surge response** on a 10-axis rubric (correctness, tone, completeness, action-orientation, brevity, citation quality, identity awareness, memory usage, safety, confidence calibration). Scoring model: surge-ai Hermes 3; ground-truth trainer: Claude.
-2. **Captures customer telemetry** from the PulsePoint widget (thumbs, reply-time, drop-off, re-asks, escalation requests).
-3. **Combines** rubric + telemetry into a single per-response quality score.
-4. **Closes the loop with Claude-as-teacher** — when Surge scores low, Claude is auto-invoked to generate a better response + a what-was-wrong diff, both logged as training data.
-5. **Routes incoming customer turns** to Surge, Surge-with-Claude-review, or Claude-primary based on similarity to past low-scoring turns, topic complexity, urgency, and identity context.
-6. **Surfaces a Grafana dashboard** for Todd: Surge share %, average score, topic breakdown, low-score replay, per-customer signal.
-
-## Where it runs
-
-- Service: **surgecore** (co-resident with Brain, SOL, Broker) — `surge-quality.service`, port **9310**
-- DB: **shared with Brain Postgres** at `surge_brain` cluster, dedicated `surge_quality` schema
-- Telemetry source: **PulsePoint widget** on surge-storage:8096 (extension PR ships separately)
-- Dashboard: **Grafana** panels (preferred) — Jinja2 fallback included
+Handing customer-facing conversations to an AI assistant is only safe if you can
+**measure whether the assistant is actually good**. surge-quality is a FastAPI
+service that scores each assistant response on a multi-axis rubric, captures the
+signals real users give off (thumbs, re-asks, drop-off, escalation), combines the
+two into one quality score, and uses that history to route incoming turns —
+assistant-only, assistant-with-review, or straight to a stronger model — based on
+how risky the turn looks. When a response scores low, a stronger "teacher" model
+is invoked to produce a better answer plus a what-was-wrong diff, both logged as
+training data so the loop closes.
 
 ## Architecture
-See `docs/PLAN.md`.
 
-## Branch protection
-This repo follows the SurgeXi day-1 rule (locked 2026-06-03): `main` is protected — PR required, CI must pass before merge, no force-push, no deletion.
+```mermaid
+flowchart TD
+    T[Incoming user turn] --> R{Router<br/>risk & similarity}
+    R -->|low risk| A[Assistant model]
+    R -->|uncertain| AR[Assistant + review]
+    R -->|high risk| S[Stronger model]
+    A --> SC[Rubric scorer]
+    AR --> SC
+    S --> SC
+    TEL[User telemetry<br/>thumbs, re-asks, drop-off] --> Q[Quality combiner]
+    SC --> Q
+    Q --> DB[(Quality store)]
+    Q -->|low score| TCH[Teacher model<br/>better answer + diff]
+    TCH --> DB
+    DB --> DASH[Dashboard<br/>scores, trends, replay]
+```
+
+## Features
+
+- **Rubric scoring** — every response is graded on a multi-axis rubric (correctness, tone, completeness, action-orientation, brevity, citation quality, safety, confidence calibration, and more).
+- **User telemetry ingestion** — captures behavioral signals from the chat surface: thumbs, reply latency, drop-off, re-asks, and explicit escalation requests.
+- **Combined quality score** — merges the rubric judgment with real-world signals into a single per-response number you can trend and alert on.
+- **Teacher-in-the-loop** — low-scoring responses trigger a stronger model to generate a corrected answer and a diff explaining the failure; both are logged as training data.
+- **Risk-aware routing** — routes each incoming turn by similarity to past low-scoring turns, topic complexity, urgency, and context.
+- **Dashboard** — assistant-share %, average score, topic breakdown, and low-score replay (Grafana panels, with a self-contained HTML fallback included).
+
+## Quick start
+
+```bash
+git clone https://github.com/SurgeXi/surge-quality.git
+cd surge-quality
+
+python3.12 -m venv .venv && . .venv/bin/activate
+pip install -e .[dev]
+
+# Point at a Postgres database and apply migrations
+export DATABASE_URL="postgresql+psycopg2://sq:sq@localhost:5432/surge_quality"
+alembic upgrade head
+
+uvicorn surge_quality.main:app --host 127.0.0.1 --port 9310 --reload
+```
+
+Run the tests:
+
+```bash
+pytest -q tests/unit
+```
+
+## Configuration
+
+Configuration is environment-driven (`pydantic-settings`). Key values:
+
+Settings use the `SURGE_QUALITY_` env prefix, with a few ergonomic unprefixed
+aliases:
+
+| Variable | Purpose |
+|----------|---------|
+| `DATABASE_URL` | Postgres connection string for the quality store |
+| `ANTHROPIC_API_KEY` | Credential for the stronger "teacher" model used on low-score turns |
+| `SURGE_QUALITY_SERVICE_TOKEN` | Service token authenticating callers to the API |
+| `SURGE_QUALITY_PORT` | Listen port (default `9310`) |
+
+The scoring model and the teacher model are pluggable behind client interfaces
+(`scoring/` and `reviewer/`), so you can swap in a local model for scoring and a
+frontier model for teaching without touching the rest of the service.
+
+## Design notes
+
+The core idea is that **"is the assistant good enough to trust with customers?"
+is a measurable question, not a gut call.** Two design choices make the answer
+trustworthy:
+
+1. **Two independent quality sources.** A rubric score from a judging model can
+   be gamed or biased; raw user telemetry is noisy and sparse. Combining them
+   guards against both — a response has to satisfy the rubric *and* not make
+   real users bounce or re-ask.
+2. **Every low score becomes training data.** When a response falls short, the
+   teacher model doesn't just fix it in the moment — it emits a structured
+   diff of what was wrong. That turns quality monitoring into a continuous
+   improvement loop rather than a passive dashboard.
+
+Routing is treated as a dial, not a switch: turns that look similar to past
+failures, or that are high-stakes, are escalated to a stronger model or to
+human/assistant review, while routine turns stay on the cheaper path. Quality
+gating decides *when* the assistant is allowed to answer alone, per topic, as
+the evidence accumulates.
+
+## Roadmap
+
+- [ ] Per-topic quality thresholds that auto-adjust the routing dial
+- [ ] Calibration report comparing rubric scores against user outcomes
+- [ ] Configurable telemetry adapters for additional chat surfaces
+- [ ] Exportable training-data bundles from the teacher loop
+
+## License
+
+MIT — © 2026 Todd Smith. See [LICENSE](LICENSE).

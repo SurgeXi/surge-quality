@@ -43,7 +43,7 @@ class Settings(BaseSettings):
 
     # --- Postgres --------------------------------------------------------
     # Conventional unprefixed name; surge-quality user, surge_quality schema
-    # on the shared surge_brain Postgres (per docs/PLAN.md §Postgres schema).
+    # on the shared application Postgres cluster, dedicated surge_quality schema.
     database_url: str = Field(
         default="postgresql://surge_quality:CHANGE_ME@127.0.0.1:5432/surge_brain",
         validation_alias="DATABASE_URL",
@@ -67,11 +67,11 @@ class Settings(BaseSettings):
     hermes_model: str = "hermes3:8b"
     hermes_timeout_seconds: float = 30.0
 
-    # --- Claude reviewer (PR-5) ------------------------------------------
+    # --- LLM reviewer (PR-5) ------------------------------------------
     anthropic_api_key: str = Field(default="", validation_alias="ANTHROPIC_API_KEY")
     anthropic_model: str = "claude-opus-4-7"
-    # Score below this threshold (0-10 combined) triggers Claude review.
-    claude_review_threshold: float = 5.0
+    # Score below this threshold (0-10 combined) triggers LLM review.
+    llm_review_threshold: float = 5.0
 
     # --- Routing (PR-6) --------------------------------------------------
     similarity_threshold: float = 0.70

@@ -1,6 +1,6 @@
-"""Parse Claude's reviewer JSON into a structured ParsedReview.
+"""Parse the LLM reviewer's JSON into a structured ParsedReview.
 
-Claude is usually well-behaved with JSON but occasionally wraps the
+the LLM reviewer is usually well-behaved with JSON but occasionally wraps the
 output in ```json ... ``` fences or prepends a single explanatory
 sentence. We strip those defensively.
 """
@@ -23,7 +23,7 @@ class ParsedReview:
 
 
 class ReviewParseError(ValueError):
-    """Raised when Claude's output cannot be parsed into the contract."""
+    """Raised when the LLM reviewer's output cannot be parsed into the contract."""
 
 
 def _strip_fences(text: str) -> str:
@@ -39,7 +39,7 @@ def _strip_fences(text: str) -> str:
 
 
 def parse_review_json(raw_text: str) -> ParsedReview:
-    """Best-effort parse of Claude's reviewer output."""
+    """Best-effort parse of the LLM reviewer's output."""
     if not raw_text or not raw_text.strip():
         raise ReviewParseError("reviewer returned empty body")
     cleaned = _strip_fences(raw_text)

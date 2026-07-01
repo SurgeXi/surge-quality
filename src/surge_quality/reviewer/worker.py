@@ -1,5 +1,5 @@
-"""Async background trigger that runs the Claude reviewer when a rubric score
-crosses the low-threshold defined in settings.claude_review_threshold.
+"""Async background trigger that runs the LLM reviewer when a rubric score
+crosses the low-threshold defined in settings.llm_review_threshold.
 
 The current execution model is BackgroundTasks-style: a coroutine that
 the API layer awaits-or-schedules via ``asyncio.create_task``. PR-7+ may
@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Awaitable, Callable
+from typing import Callable
 
 from sqlalchemy.orm import Session
 
@@ -32,19 +32,19 @@ async def maybe_trigger_review(
     customer_message: str | None = None,
     session_factory: Callable[[], Session] | None = None,
 ) -> bool:
-    """Run the Claude reviewer iff the score is below the threshold.
+    """Run the LLM reviewer iff the score is below the threshold.
 
     Returns True when a review was attempted (regardless of success);
     False when the score did not warrant a review.
     """
     settings = get_settings()
-    threshold = settings.claude_review_threshold
+    threshold = settings.llm_review_threshold
     if composite_score >= threshold:
         return False
     if not settings.anthropic_api_key:
         logger.warning(
             "low score %.2f on response_id=%s but ANTHROPIC_API_KEY is unset; "
-            "skipping reviewer. Provision /etc/surge-quality/claude.env on the host.",
+            "skipping reviewer. Provision /etc/surge-quality/provider.env on the host.",
             composite_score,
             response_id,
         )
@@ -62,7 +62,7 @@ async def maybe_trigger_review(
             )
             return False
         except Exception:  # noqa: BLE001
-            logger.exception("claude reviewer failed response_id=%s", response_id)
+            logger.exception("llm reviewer failed response_id=%s", response_id)
             return True  # attempted, but failed — caller should not retry on a hot path
     finally:
         db.close()

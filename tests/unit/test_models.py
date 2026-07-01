@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 
 from surge_quality.db import Base
 from surge_quality.models import (
-    ClaudeReview,
+    LlmReview,
     Response,
     RoutingDecision,
     RubricScore,
@@ -147,7 +147,7 @@ def test_telemetry_distinct_signal_types(session: Session) -> None:
 
 def test_claude_review_roundtrip(session: Session) -> None:
     resp = _make_response(session)
-    cr = ClaudeReview(
+    cr = LlmReview(
         response_id=resp.id,
         better_response="Here is what I would have said.",
         what_was_wrong="The original missed the user's actual question.",
@@ -158,7 +158,7 @@ def test_claude_review_roundtrip(session: Session) -> None:
     )
     session.add(cr)
     session.flush()
-    fetched = session.get(ClaudeReview, cr.id)
+    fetched = session.get(LlmReview, cr.id)
     assert fetched.triggered_by_score == pytest.approx(3.4)
 
 

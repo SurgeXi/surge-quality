@@ -8,7 +8,7 @@ so either one is sufficient for the daily operator view.
 Files in this directory:
 
 - `surge-quality.json` — the dashboard itself. 9 panels:
-  - 4 stat tiles (volume, avg rubric composite, low-score share, Claude takeovers)
+  - 4 stat tiles (volume, avg rubric composite, low-score share, LLM takeovers)
   - per-day Surge share (stacked %)
   - per-day average rubric composite (line)
   - per-day combined quality score (line, 0-1)

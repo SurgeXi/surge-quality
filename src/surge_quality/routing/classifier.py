@@ -2,8 +2,8 @@
 
 Per docs/PLAN.md §5, the output is one of:
 - surge                       Surge handles the turn alone
-- surge_with_claude_review    Surge drafts, Claude reviews before send
-- claude_primary              Claude handles the turn directly
+- surge_with_claude_review    Surge drafts, the LLM reviewer reviews before send
+- claude_primary              the stronger model handles the turn directly
 
 Decision factors (sorted by weight on the final pick):
 1. urgency keywords in the input
@@ -22,7 +22,7 @@ import re
 from dataclasses import dataclass
 from typing import Any
 
-# Trigger words that bias decisions toward Claude.
+# Trigger words that bias decisions toward the stronger model.
 _URGENCY_PATTERNS = re.compile(
     r"\b(urgent|asap|now|broken|help|emergency|right now|immediately|stuck|blocked|"
     r"down|crashed|losing money|can'?t (?:see|find|access|pay))\b",
@@ -89,7 +89,7 @@ def classify(
     factors["customer_facing"] = customer_facing
     factors["long_message"] = long_message
 
-    # 1. High similarity to past low-score turns → bias hard to Claude.
+    # 1. High similarity to past low-score turns → bias hard to the stronger model.
     if max_similarity_low_score >= similarity_threshold:
         return RouteDecision(
             decision="claude_primary",
@@ -100,7 +100,7 @@ def classify(
             factors=factors,
         )
 
-    # 2. Customer-facing + (urgent OR high-stakes) → Claude primary.
+    # 2. Customer-facing + (urgent OR high-stakes) → stronger-model primary.
     if customer_facing and (urgency or high_stakes):
         why = []
         if urgency:
@@ -115,7 +115,7 @@ def classify(
             factors=factors,
         )
 
-    # 3. Customer-facing + long message → Claude reviews Surge's draft.
+    # 3. Customer-facing + long message → the LLM reviewer reviews Surge's draft.
     if customer_facing and long_message:
         return RouteDecision(
             decision="surge_with_claude_review",

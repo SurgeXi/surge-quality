@@ -176,7 +176,7 @@
   <h1>surge-quality — operator dashboard</h1>
   <div class="meta">
     window: last {{ window_days }}d ·
-    threshold: {{ "%.2f"|format(claude_review_threshold) }} ·
+    threshold: {{ "%.2f"|format(llm_review_threshold) }} ·
     generated: {{ generated_at }}
   </div>
 </header>
@@ -188,14 +188,14 @@
     <section class="panel">
       <h2>Per-day Surge share</h2>
       <div class="desc">
-        % of scored responses each day handled by Surge (teal) vs Claude
+        % of scored responses each day handled by Surge (teal) vs the LLM
         (navy). Last {{ window_days }} days.
       </div>
       {% if daily|length == 0 %}
         <div class="empty">No scored responses in the window.</div>
       {% else %}
         {# Inline SVG stacked bars. Width fixed; height computed to fit
-           a 0-100 axis. Each day is a stacked surge/claude pair. #}
+           a 0-100 axis. Each day is a stacked surge/llm pair. #}
         {% set W = 720 %}
         {% set H = 220 %}
         {% set padL = 36 %}
@@ -216,7 +216,7 @@
           {% for d in daily %}
             {% set x = padL + loop.index0 * (plotW / daily|length) + 3 %}
             {% set sh = (d.surge_share_pct / 100.0) * plotH %}
-            {% set ch = (d.claude_share_pct / 100.0) * plotH %}
+            {% set ch = (d.llm_share_pct / 100.0) * plotH %}
             <rect class="bar surge"  x="{{ x }}" y="{{ padT + plotH - sh }}"        width="{{ bw }}" height="{{ sh }}"></rect>
             <rect class="bar claude" x="{{ x }}" y="{{ padT + plotH - sh - ch }}"   width="{{ bw }}" height="{{ ch }}"></rect>
             {% if loop.index0 % 2 == 0 %}
@@ -226,7 +226,7 @@
         </svg>
         <div style="margin-top:10px">
           <span class="pill surge">surge</span>
-          <span class="pill claude" style="margin-left:6px">claude</span>
+          <span class="pill claude" style="margin-left:6px">llm</span>
         </div>
       {% endif %}
     </section>
@@ -318,21 +318,21 @@
     {% endif %}
   </section>
 
-  {# --- Phase B (Claude→Surge takeover) — shadow corpus summary ------- #}
+  {# --- Phase B (quality-gating rollout) — shadow corpus summary ------- #}
   {# The Phase B section is a self-contained block: a top stat row,
      a trend line, then a topic histogram. Filtered to shadow rows so
      the original panels remain a live-traffic view and these new
      panels are the "how is Surge doing on parallel shadow turns?"
-     view. See project_pulsepoint_design_decisions §Sequencing → B. #}
+     view (shadow-mode corpus). #}
   <section class="panel" style="border-color: var(--teal);">
     <h2>Phase B — Surge shadow corpus</h2>
     <div class="desc">
-      Phase B (Claude→Surge takeover, shadow mode). On every PulsePoint
-      customer turn Surge generates a parallel response; Claude continues
+      Phase B (quality-gating rollout, shadow mode). On every PulsePoint
+      customer turn Surge generates a parallel response; the LLM continues
       to serve the customer. Surge's response is scored on the 10-axis
       rubric. Acceptance corpus = shadow rows with composite at-or-above
-      threshold {{ "%.2f"|format(claude_review_threshold) }}. Negative corpus =
-      below threshold (Claude reviewer fires on these). Window: last
+      threshold {{ "%.2f"|format(llm_review_threshold) }}. Negative corpus =
+      below threshold (LLM reviewer fires on these). Window: last
       {{ shadow_corpus.window_days }} days.
     </div>
     {% set sc = shadow_corpus %}
@@ -353,11 +353,11 @@
         <div class="tile-value num" style="color: var(--warn);">
           {{ sc.negative_corpus_size }}
         </div>
-        <div class="tile-sub">claude reviewer fires</div>
+        <div class="tile-sub">LLM reviewer fires</div>
       </div>
       <div class="tile">
         <div class="tile-label">Reviewer queue depth</div>
-        <div class="tile-value num">{{ sc.claude_reviewer_queue_depth }}</div>
+        <div class="tile-value num">{{ sc.llm_reviewer_queue_depth }}</div>
         <div class="tile-sub">below threshold, no review yet</div>
       </div>
       <div class="tile">
@@ -453,7 +453,7 @@
               <td>{{ t.topic }}</td>
               <td class="num">{{ t.n }}</td>
               <td class="num">
-                {% if t.avg_composite >= claude_review_threshold %}
+                {% if t.avg_composite >= llm_review_threshold %}
                   <span class="pill surge">{{ "%.2f"|format(t.avg_composite) }}</span>
                 {% else %}
                   <span class="pill warn">{{ "%.2f"|format(t.avg_composite) }}</span>
@@ -468,7 +468,7 @@
 
   {# --- Low-score replay ---------------------------------------------- #}
   <section class="panel">
-    <h2>Low-score replay (composite &lt; {{ "%.2f"|format(claude_review_threshold) }})</h2>
+    <h2>Low-score replay (composite &lt; {{ "%.2f"|format(llm_review_threshold) }})</h2>
     <div class="desc">
       Most recent low-scoring turns. Click the response_id to fetch the
       full rubric via the scoring API.

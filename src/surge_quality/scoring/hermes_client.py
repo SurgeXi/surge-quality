@@ -1,6 +1,6 @@
 """Async httpx client for the surge-ai Hermes endpoint.
 
-Surge-ai runs Ollama at :11434 with the Hermes 3 8B model (P40-class GPU
+The scoring backend runs Ollama with the Hermes 3 8B model (GPU
 per memory `surge_ai_upgrade_2026_06`). We call the ``/api/generate``
 endpoint with ``format=json`` to coerce a structured rubric response.
 

@@ -39,3 +39,9 @@ secrets/
 # Local data
 *.sqlite
 *.db
+
+# Keys + model/data artifacts
+*.key
+*.pem
+/data
+/models

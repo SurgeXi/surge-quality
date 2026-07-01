@@ -7,7 +7,7 @@ an embedding-based one for the MVP, because:
    smoke notes); we shouldn't depend on Hermes for routing decisions.
 2. Jaccard-on-shingles is robust to short queries and ships with zero
    extra dependencies — no embedding store, no vector index, no rebuilds.
-3. PR-7+ can swap this for nomic-embed-text + pgvector when surge-ai is
+3. A future iteration can swap this for nomic-embed-text + pgvector when a
    underloaded and the volume justifies the operational cost.
 
 The similarity score is in [0.0, 1.0] where 0.0 = disjoint and 1.0 =

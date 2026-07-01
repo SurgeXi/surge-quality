@@ -13,7 +13,6 @@ self-skips on developer laptops without one.
 
 from __future__ import annotations
 
-import os
 import shutil
 import stat
 import subprocess

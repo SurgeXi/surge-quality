@@ -55,7 +55,7 @@ class RouteDecisionOut(BaseModel):
 def _load_low_score_corpus(db: Session) -> list[str]:
     """Recent low-scoring Surge responses, used as the similarity corpus."""
     settings = get_settings()
-    threshold = settings.claude_review_threshold
+    threshold = settings.llm_review_threshold
     rows = (
         db.query(Response.response_text)
         .join(RubricScore, RubricScore.response_id == Response.id)

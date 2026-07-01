@@ -12,7 +12,7 @@ def test_defaults() -> None:
     assert s.db_schema == "surge_quality"
     assert s.hermes_model == "hermes3:8b"
     assert s.anthropic_model == "claude-opus-4-7"
-    assert s.claude_review_threshold == 5.0
+    assert s.llm_review_threshold == 5.0
 
 
 def test_env_override(monkeypatch) -> None:

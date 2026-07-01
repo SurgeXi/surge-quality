@@ -48,7 +48,7 @@
     },
     {
       "type": "stat",
-      "title": "Claude takeovers",
+      "title": "LLM takeovers",
       "gridPos": {"h": 4, "w": 4, "x": 15, "y": 0},
       "datasource": {"type": "postgres", "uid": "surge_quality_pg"},
       "targets": [

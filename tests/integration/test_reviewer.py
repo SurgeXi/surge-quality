@@ -11,7 +11,7 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session
 
 from surge_quality.db import Base
-from surge_quality.models import ClaudeReview, Response, RubricScore
+from surge_quality.models import LlmReview, Response, RubricScore
 from surge_quality.reviewer.service import review_response
 from surge_quality.settings import get_settings
 
@@ -110,7 +110,7 @@ async def test_review_response_persists(fixture_response_with_score) -> None:
     )
     assert "Here is the answer" in parsed.better_response
 
-    row = sess.query(ClaudeReview).filter_by(response_id=response_id).one()
+    row = sess.query(LlmReview).filter_by(response_id=response_id).one()
     assert row.better_response.startswith("Here is the answer")
     assert row.what_was_wrong.startswith("The response deflected")
     assert row.triggered_by_score < 5.0

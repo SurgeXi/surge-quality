@@ -4,7 +4,7 @@ Endpoints:
 - PR-2: /healthz, /readyz
 - PR-3: /v1/quality/score-response (POST + GET)
 - PR-4: /v1/quality/telemetry (POST)
-- PR-5: scoring API triggers Claude reviewer background task
+- PR-5: scoring API triggers LLM reviewer background task
 - PR-6: /v1/quality/route-decision (POST)
 - PR-7 (this commit): /v1/quality/dashboard (HTML), /v1/quality/dashboard/metrics (JSON)
 """
@@ -37,7 +37,7 @@ def create_app() -> FastAPI:
         version="0.1.0",
         description=(
             "SurgeXi Quality recommender. Read-only service that scores Surge "
-            "responses, captures customer telemetry, asks Claude to teach when "
+            "responses, captures customer telemetry, asks the LLM reviewer to teach when "
             "Surge underperforms, and emits routing-decision advice. Does not "
             "execute side-effects — those route through SOL."
         ),

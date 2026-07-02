@@ -36,6 +36,10 @@ flowchart TD
     DB --> DASH[Dashboard<br/>scores, trends, replay]
 ```
 
+![Surge Quality dashboard — live scoring, risk routing, and telemetry](deploy/screenshots/dashboard-2026-06-04.png)
+
+*Live quality telemetry: per-conversation scores, risk-tier routing, and teacher-in-the-loop signals.*
+
 ## Features
 
 - **Rubric scoring** — every response is graded on a multi-axis rubric (correctness, tone, completeness, action-orientation, brevity, citation quality, safety, confidence calibration, and more).

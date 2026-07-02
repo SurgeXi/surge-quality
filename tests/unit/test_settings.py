@@ -12,7 +12,7 @@ def test_defaults() -> None:
     assert s.port == 9310
     assert s.db_schema == "surge_quality"
     assert s.hermes_model == "hermes3:8b"
-    assert s.anthropic_model == "claude-opus-4-7"
+    assert s.reviewer_model == "claude-opus-4-7"
     assert s.llm_review_threshold == 5.0
 
 
@@ -22,3 +22,18 @@ def test_env_override(monkeypatch) -> None:
     s = Settings()
     assert s.database_url == "postgresql://x:y@localhost:5432/z"
     assert s.port == 9311
+
+
+def test_reviewer_api_key_legacy_alias(monkeypatch) -> None:
+    """The shipped backend's ANTHROPIC_API_KEY remains a valid source for the
+    generic reviewer_api_key so existing deployments keep working."""
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "legacy-key-value")
+    s = Settings()
+    assert s.reviewer_api_key == "legacy-key-value"
+
+
+def test_reviewer_api_key_generic_name(monkeypatch) -> None:
+    """The generic REVIEWER_API_KEY name is honored."""
+    monkeypatch.setenv("REVIEWER_API_KEY", "generic-key-value")
+    s = Settings()
+    assert s.reviewer_api_key == "generic-key-value"

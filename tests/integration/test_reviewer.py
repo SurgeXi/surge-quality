@@ -1,5 +1,5 @@
 # Copyright © 2026 SurgeXi Business Intelligence, a Teamsmith Enterprises LLC company. All Rights Reserved.
-"""Reviewer integration test: mocked Anthropic client + real Postgres."""
+"""Reviewer integration test: mocked LLM reviewer client + real Postgres."""
 
 from __future__ import annotations
 
@@ -35,8 +35,8 @@ pytestmark = pytest.mark.skipif(
 
 
 @dataclass
-class FakeAnthropicClient:
-    """Test double for AnthropicClient — returns a canned JSON body."""
+class FakeLlmReviewer:
+    """Test double for LlmReviewer — returns a canned JSON body."""
 
     model: str
     payload: dict
@@ -95,7 +95,7 @@ def fixture_response_with_score():
 @pytest.mark.asyncio
 async def test_review_response_persists(fixture_response_with_score) -> None:
     sess, response_id = fixture_response_with_score
-    fake = FakeAnthropicClient(
+    fake = FakeLlmReviewer(
         model="claude-opus-4-7-test",
         payload={
             "better_response": "Here is the answer the customer asked for.",
@@ -120,9 +120,9 @@ async def test_review_response_persists(fixture_response_with_score) -> None:
 
 @pytest.mark.asyncio
 async def test_review_response_dedup(fixture_response_with_score) -> None:
-    """Second call returns the already-persisted review without re-calling Claude."""
+    """Second call returns the already-persisted review without re-calling the reviewer."""
     sess, response_id = fixture_response_with_score
-    fake = FakeAnthropicClient(
+    fake = FakeLlmReviewer(
         model="claude-opus-4-7-test",
         payload={
             "better_response": "first call body",
@@ -134,7 +134,7 @@ async def test_review_response_dedup(fixture_response_with_score) -> None:
 
     # Swap to a second client that would return different text — second call
     # should return the FIRST review, proving dedup.
-    fake2 = FakeAnthropicClient(
+    fake2 = FakeLlmReviewer(
         model="should-not-be-used",
         payload={"better_response": "second", "what_was_wrong": "x", "how_to_fix": "y"},
     )

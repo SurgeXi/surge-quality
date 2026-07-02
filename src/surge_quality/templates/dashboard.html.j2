@@ -112,7 +112,7 @@
     }
     .pill.warn { background: rgba(192, 57, 43, 0.1); color: var(--warn); }
     .pill.surge { background: rgba(0, 166, 166, 0.15); color: var(--teal); }
-    .pill.claude { background: rgba(11, 79, 138, 0.12); color: var(--exec); }
+    .pill.llm { background: rgba(11, 79, 138, 0.12); color: var(--exec); }
     .empty {
       color: var(--graphite);
       font-size: 13px;
@@ -159,7 +159,7 @@
     .axis text { font-size: 10px; fill: var(--graphite); }
     .grid line { stroke: var(--silver); stroke-width: 1; }
     .bar.surge { fill: var(--teal); }
-    .bar.claude { fill: var(--exec); }
+    .bar.llm { fill: var(--exec); }
     .line { fill: none; stroke: var(--exec); stroke-width: 2; }
     .area { fill: rgba(11, 79, 138, 0.10); }
     footer {
@@ -218,7 +218,7 @@
             {% set sh = (d.surge_share_pct / 100.0) * plotH %}
             {% set ch = (d.llm_share_pct / 100.0) * plotH %}
             <rect class="bar surge"  x="{{ x }}" y="{{ padT + plotH - sh }}"        width="{{ bw }}" height="{{ sh }}"></rect>
-            <rect class="bar claude" x="{{ x }}" y="{{ padT + plotH - sh - ch }}"   width="{{ bw }}" height="{{ ch }}"></rect>
+            <rect class="bar llm" x="{{ x }}" y="{{ padT + plotH - sh - ch }}"   width="{{ bw }}" height="{{ ch }}"></rect>
             {% if loop.index0 % 2 == 0 %}
               <text class="axis" x="{{ x + bw/2 }}" y="{{ H - 8 }}" text-anchor="middle">{{ d.day[5:] }}</text>
             {% endif %}
@@ -226,7 +226,7 @@
         </svg>
         <div style="margin-top:10px">
           <span class="pill surge">surge</span>
-          <span class="pill claude" style="margin-left:6px">llm</span>
+          <span class="pill llm" style="margin-left:6px">llm</span>
         </div>
       {% endif %}
     </section>
@@ -306,7 +306,7 @@
                 {% if t.avg_composite >= 7.0 %}
                   <span class="pill">healthy</span>
                 {% elif t.avg_composite >= 5.0 %}
-                  <span class="pill claude">watch</span>
+                  <span class="pill llm">watch</span>
                 {% else %}
                   <span class="pill warn">teach</span>
                 {% endif %}

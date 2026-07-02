@@ -81,7 +81,7 @@ aliases:
 | Variable | Purpose |
 |----------|---------|
 | `DATABASE_URL` | Postgres connection string for the quality store |
-| `ANTHROPIC_API_KEY` | Credential for the stronger "teacher" model used on low-score turns |
+| `REVIEWER_API_KEY` | Credential for the frontier "teacher" model used on low-score turns. The shipped reviewer backend also accepts its native `ANTHROPIC_API_KEY` as the documented default. |
 | `SURGE_QUALITY_SERVICE_TOKEN` | Service token authenticating callers to the API |
 | `SURGE_QUALITY_PORT` | Listen port (default `9310`) |
 

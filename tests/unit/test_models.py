@@ -146,7 +146,7 @@ def test_telemetry_distinct_signal_types(session: Session) -> None:
     assert {r.signal_type for r in rows} == {"thumbs_up", "reply_time_seconds"}
 
 
-def test_claude_review_roundtrip(session: Session) -> None:
+def test_llm_review_roundtrip(session: Session) -> None:
     resp = _make_response(session)
     cr = LlmReview(
         response_id=resp.id,

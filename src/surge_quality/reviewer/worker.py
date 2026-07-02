@@ -42,9 +42,9 @@ async def maybe_trigger_review(
     threshold = settings.llm_review_threshold
     if composite_score >= threshold:
         return False
-    if not settings.anthropic_api_key:
+    if not settings.reviewer_api_key:
         logger.warning(
-            "low score %.2f on response_id=%s but ANTHROPIC_API_KEY is unset; "
+            "low score %.2f on response_id=%s but reviewer API key is unset; "
             "skipping reviewer. Provision /etc/surge-quality/provider.env on the host.",
             composite_score,
             response_id,

@@ -60,15 +60,15 @@ ReadWritePaths=/opt/surge-quality/var
 ReadWritePaths=/var/log/surge-quality
 
 # Network — service only needs IPv4/IPv6 TCP. No raw sockets, no
-# AF_NETLINK, no AF_PACKET. The Postgres + Hermes + Anthropic API
+# AF_NETLINK, no AF_PACKET. The Postgres + Hermes + LLM reviewer API
 # clients all use AF_INET(6).
 RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
 IPAddressDeny=any
 # Allow loopback (Postgres + Hermes via Tailscale 100.64/10 subnet, plus
-# Anthropic via the public internet — restricted at the egress firewall,
-# not here). We err on the side of explicit allow rather than firewalling
-# everything; the IPAddressAllow lines below are tuned to the surge-ai +
-# surgecore + claude.anthropic.com path.
+# the LLM reviewer backend via the public internet — restricted at the
+# egress firewall, not here). We err on the side of explicit allow rather
+# than firewalling everything; the IPAddressAllow lines below are tuned to
+# the surge-ai + surgecore + reviewer-backend egress path.
 IPAddressAllow=localhost
 IPAddressAllow=10.0.0.0/8
 IPAddressAllow=100.64.0.0/10

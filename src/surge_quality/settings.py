@@ -12,7 +12,7 @@ from __future__ import annotations
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import Field
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -21,7 +21,7 @@ class Settings(BaseSettings):
 
     Naming convention: all surge-quality env vars are prefixed with
     ``SURGE_QUALITY_``. We accept a small number of standard names
-    (``DATABASE_URL``, ``ANTHROPIC_API_KEY``) unprefixed for ergonomic
+    (``DATABASE_URL``, the reviewer API key) unprefixed for ergonomic
     parity with upstream tooling.
     """
 
@@ -69,8 +69,21 @@ class Settings(BaseSettings):
     hermes_timeout_seconds: float = 30.0
 
     # --- LLM reviewer (PR-5) ------------------------------------------
-    anthropic_api_key: str = Field(default="", validation_alias="ANTHROPIC_API_KEY")
-    anthropic_model: str = "claude-opus-4-7"
+    # Credential for the frontier "teacher" model used on low-score turns.
+    # Read via a generic name; the shipped backend's ANTHROPIC_API_KEY is
+    # accepted as the documented default so existing deployments keep working.
+    reviewer_api_key: str = Field(
+        default="",
+        validation_alias=AliasChoices(
+            "SURGE_QUALITY_REVIEWER_API_KEY", "REVIEWER_API_KEY", "ANTHROPIC_API_KEY"
+        ),
+    )
+    reviewer_model: str = Field(
+        default="claude-opus-4-7",
+        validation_alias=AliasChoices(
+            "SURGE_QUALITY_REVIEWER_MODEL", "REVIEWER_MODEL", "ANTHROPIC_MODEL"
+        ),
+    )
     # Score below this threshold (0-10 combined) triggers LLM review.
     llm_review_threshold: float = 5.0
 

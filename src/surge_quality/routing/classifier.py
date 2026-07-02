@@ -1,10 +1,12 @@
 # Copyright © 2026 SurgeXi Business Intelligence, a Teamsmith Enterprises LLC company. All Rights Reserved.
 """Routing classifier — input message + context → routing advice.
 
-Per docs/PLAN.md §5, the output is one of:
+Per docs/PLAN.md §5, the output is one of the stable routing-tier tokens
+below (kept verbatim because they are persisted in
+``routing_decisions.decision`` and queried by the dashboards):
 - surge                       Surge handles the turn alone
 - surge_with_claude_review    Surge drafts, the LLM reviewer reviews before send
-- claude_primary              the stronger model handles the turn directly
+- claude_primary              the stronger/frontier model handles the turn directly
 
 Decision factors (sorted by weight on the final pick):
 1. urgency keywords in the input
@@ -42,7 +44,7 @@ _HIGH_STAKES_PATTERNS = re.compile(
 class RouteDecision:
     """Final classifier output."""
 
-    decision: str  # surge | surge_with_claude_review | claude_primary
+    decision: str  # routing tier: surge | surge_with_claude_review | claude_primary
     reasoning: str
     factors: dict[str, Any]
 

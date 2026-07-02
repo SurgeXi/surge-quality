@@ -1,5 +1,10 @@
 # Copyright © 2026 SurgeXi Business Intelligence, a Teamsmith Enterprises LLC company. All Rights Reserved.
-"""claude_reviews table — Claude's teacher feedback for low-scoring turns
+"""LLM reviewer feedback table — teacher feedback for low-scoring turns.
+
+Creates the physical ``claude_reviews`` table. The table name is a stable
+schema identifier retained verbatim so deployed databases created by this
+revision continue to match; the ORM class that maps it reads as the generic
+``LlmReview``.
 
 Revision ID: 0004
 Revises: 0003

@@ -11,7 +11,7 @@ import logging
 from sqlalchemy.orm import Session
 
 from surge_quality.models import LlmReview, Response, RubricScore, TelemetrySignal
-from surge_quality.reviewer.anthropic_client import AnthropicClient
+from surge_quality.reviewer.llm_reviewer import LlmReviewer
 from surge_quality.reviewer.parser import ParsedReview, parse_review_json
 from surge_quality.reviewer.prompts import SYSTEM_PROMPT, render_user_prompt
 from surge_quality.settings import get_settings
@@ -34,7 +34,7 @@ AXES = (
 
 
 class ReviewerNotConfigured(RuntimeError):
-    """Raised when ANTHROPIC_API_KEY is empty so the reviewer cannot run."""
+    """Raised when the reviewer API key is empty so the reviewer cannot run."""
 
 
 async def review_response(
@@ -42,7 +42,7 @@ async def review_response(
     response_id: int,
     *,
     customer_message: str | None = None,
-    client: AnthropicClient | None = None,
+    client: LlmReviewer | None = None,
 ) -> ParsedReview:
     """Produce a LLM review for the named response and persist it.
 
@@ -52,15 +52,15 @@ async def review_response(
 
     settings = get_settings()
     if client is None:
-        if not settings.anthropic_api_key:
+        if not settings.reviewer_api_key:
             raise ReviewerNotConfigured(
-                "ANTHROPIC_API_KEY not set — LLM reviewer is disabled. "
+                "reviewer API key not set — LLM reviewer is disabled. "
                 "Install /etc/surge-quality/provider.env on the host and "
                 "restart the service."
             )
-        client = AnthropicClient(
-            api_key=settings.anthropic_api_key,
-            model=settings.anthropic_model,
+        client = LlmReviewer(
+            api_key=settings.reviewer_api_key,
+            model=settings.reviewer_model,
         )
 
     existing = db.query(LlmReview).filter_by(response_id=response_id).one_or_none()

@@ -103,7 +103,7 @@ async def post_score_response(
     review_scheduled = False
     if (
         row.composite < settings.llm_review_threshold
-        and settings.anthropic_api_key
+        and settings.reviewer_api_key
     ):
         background_tasks.add_task(
             maybe_trigger_review,

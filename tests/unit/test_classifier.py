@@ -6,7 +6,7 @@ from __future__ import annotations
 from surge_quality.routing.classifier import classify
 
 
-def test_urgent_customer_message_routes_to_claude() -> None:
+def test_urgent_customer_message_routes_to_frontier_primary() -> None:
     r = classify(
         "this is urgent, my payroll is broken right now",
         identity_context={
@@ -18,7 +18,7 @@ def test_urgent_customer_message_routes_to_claude() -> None:
     assert "urgency" in r.reasoning or "high-stakes" in r.reasoning
 
 
-def test_high_stakes_customer_routes_to_claude() -> None:
+def test_high_stakes_customer_routes_to_frontier_primary() -> None:
     r = classify(
         "the IRS sent us a deadline notice for the quarterly filing",
         identity_context={
@@ -31,7 +31,7 @@ def test_high_stakes_customer_routes_to_claude() -> None:
 
 
 def test_operator_in_seat_does_not_get_customer_treatment() -> None:
-    """Todd is the operator — no auto-Claude-elevation for him."""
+    """Todd is the operator — no auto-elevation to the frontier tier for him."""
     r = classify(
         "this is urgent, payroll is broken",
         identity_context={
@@ -55,7 +55,7 @@ def test_long_customer_message_routes_to_review() -> None:
     assert "long" in r.reasoning
 
 
-def test_high_similarity_to_low_score_routes_to_claude() -> None:
+def test_high_similarity_to_low_score_routes_to_frontier_primary() -> None:
     r = classify(
         "anything",
         identity_context={"logged_in_user": "sheilia@timesavedap.com"},

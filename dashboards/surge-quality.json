@@ -69,7 +69,7 @@
         {
           "refId": "A",
           "format": "time_series",
-          "rawSql": "SELECT date_trunc('day', r.generated_at) AS time, 100.0 * SUM(CASE WHEN r.model_used ILIKE '%claude%' THEN 0 ELSE 1 END)::float / NULLIF(COUNT(*),0) AS \"surge %\", 100.0 * SUM(CASE WHEN r.model_used ILIKE '%claude%' THEN 1 ELSE 0 END)::float / NULLIF(COUNT(*),0) AS \"claude %\" FROM surge_quality.responses r JOIN surge_quality.rubric_scores rs ON rs.response_id = r.id WHERE r.generated_at >= now() - interval '14 days' GROUP BY 1 ORDER BY 1;"
+          "rawSql": "SELECT date_trunc('day', r.generated_at) AS time, 100.0 * SUM(CASE WHEN r.model_used ILIKE '%claude%' THEN 0 ELSE 1 END)::float / NULLIF(COUNT(*),0) AS \"surge %\", 100.0 * SUM(CASE WHEN r.model_used ILIKE '%claude%' THEN 1 ELSE 0 END)::float / NULLIF(COUNT(*),0) AS \"llm %\" FROM surge_quality.responses r JOIN surge_quality.rubric_scores rs ON rs.response_id = r.id WHERE r.generated_at >= now() - interval '14 days' GROUP BY 1 ORDER BY 1;"
         }
       ],
       "fieldConfig": {"defaults": {"unit": "percent", "min": 0, "max": 100, "custom": {"drawStyle": "bars", "stacking": {"mode": "percent"}, "fillOpacity": 70, "lineWidth": 0}}}

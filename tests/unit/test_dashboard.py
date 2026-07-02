@@ -27,8 +27,8 @@ from surge_quality.api.dashboard import (
 @pytest.mark.parametrize(
     "model,family",
     [
-        ("claude-opus-4-7", "claude"),
-        ("anthropic/claude-3.5", "claude"),
+        ("claude-opus-4-7", "llm"),
+        ("anthropic/claude-3.5", "llm"),
         ("hermes3:8b", "surge"),
         ("qwen2.5:14b", "surge"),
         ("llama3.1:8b", "surge"),

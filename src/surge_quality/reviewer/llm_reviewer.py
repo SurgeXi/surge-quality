@@ -1,14 +1,19 @@
 # Copyright © 2026 SurgeXi Business Intelligence, a Teamsmith Enterprises LLC company. All Rights Reserved.
-"""Anthropic SDK wrapper for the LLM-as-teacher reviewer.
+"""LLM reviewer client for the LLM-as-teacher loop.
 
-We use the async client so the reviewer can be invoked from inside an
-async FastAPI background task without blocking the event loop. The model
-defaults to ``claude-opus-4-7`` per settings; the prompt produces a
-strict JSON object that ``parser.py`` can deserialize.
+The reviewer is a pluggable seam: ``LlmReviewer`` exposes a provider-neutral
+``review()`` coroutine and ships with a hosted-frontier backend as the default
+implementation. Swapping the backend is a matter of pointing the seam at a
+different client that satisfies the same ``review()`` contract.
 
-Prompt caching: the system prompt (the persona + JSON contract) is
-identical for every review call, so we cache it. The variable per-call
-payload — the actual Surge response + rubric scores — is NOT cached.
+We use an async client so the reviewer can be invoked from inside an async
+FastAPI background task without blocking the event loop. The model defaults to
+the value in settings; the prompt produces a strict JSON object that
+``parser.py`` can deserialize.
+
+Prompt caching: the system prompt (the persona + JSON contract) is identical
+for every review call, so we cache it. The variable per-call payload — the
+actual Surge response + rubric scores — is NOT cached.
 """
 
 from __future__ import annotations
@@ -21,8 +26,14 @@ from anthropic import AsyncAnthropic
 logger = logging.getLogger(__name__)
 
 
-class AnthropicClient:
-    """Thin async wrapper over the Anthropic SDK."""
+class LlmReviewer:
+    """Async LLM reviewer client.
+
+    Ships with a hosted-frontier backend (the Anthropic SDK) as the default
+    provider. The public surface — the ``review()`` coroutine — is
+    provider-neutral so an alternate backend can be dropped in without
+    touching the reviewer service.
+    """
 
     def __init__(
         self,
@@ -32,7 +43,7 @@ class AnthropicClient:
         timeout_seconds: float = 60.0,
     ) -> None:
         if not api_key:
-            raise ValueError("ANTHROPIC_API_KEY is empty — reviewer cannot run")
+            raise ValueError("reviewer API key is empty — reviewer cannot run")
         self.model = model
         self.max_tokens = max_tokens
         self._client = AsyncAnthropic(api_key=api_key, timeout=timeout_seconds)

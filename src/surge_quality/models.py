@@ -163,6 +163,10 @@ class TelemetrySignal(Base):
 class LlmReview(Base):
     """the LLM reviewer's teacher feedback for a low-scoring turn."""
 
+    # NOTE: the physical table name is a stable schema identifier. Deployed
+    # databases already carry this table, so the on-disk name is left
+    # unchanged; the ORM class and everything above it read as generic
+    # ``LlmReview`` / reviewer terms.
     __tablename__ = "claude_reviews"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)

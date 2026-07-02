@@ -139,8 +139,8 @@ class LowScoreRow:
 #                             fire) + negative corpus size (rows where
 #                             it did) + current LLM reviewer queue
 #                             depth (proxy: rows scheduled-but-unposted,
-#                             i.e. composite < threshold AND no
-#                             claude_reviews row yet).
+#                             i.e. composite < threshold AND no reviewer
+#                             row yet in the reviews table).
 #
 # Acceptance threshold is the inverse of the negative threshold:
 # anything at-or-above ``llm_review_threshold`` is "Surge handled it
@@ -177,13 +177,18 @@ class ShadowCorpusSummary:
 
 
 def _model_family(model: str) -> str:
-    """Bucket the heterogeneous ``model_used`` values into surge vs claude
-    vs other. We treat anything containing 'claude' as claude, anything
-    starting with 'hermes', 'qwen', 'llama', 'surge' as surge, everything
-    else as 'other'. Matches the labels used in the Grafana panels."""
+    """Bucket the heterogeneous ``model_used`` values into surge vs the
+    frontier reviewer vs other. Anything containing 'claude' (the shipped
+    reviewer backend's model family) buckets as the 'llm' family; anything
+    starting with 'hermes', 'qwen', 'llama', 'surge' buckets as surge;
+    everything else as 'other'. Matches the labels used in the Grafana panels.
+
+    The 'claude' match token is the literal model-name substring the live
+    system writes into ``responses.model_used`` — it is a data match, not a
+    display label, so it stays verbatim."""
     m = (model or "").lower()
     if "claude" in m:
-        return "claude"
+        return "llm"
     if (
         m.startswith(("hermes", "qwen", "llama", "surge"))
         or "ollama" in m

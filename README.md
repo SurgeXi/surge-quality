@@ -4,7 +4,7 @@
 > A quality-measurement and routing layer for LLM assistants — score every response on a rubric, fold in real user signals, and route the next turn to the model that can handle it.
 
 [![ci](https://github.com/SurgeXi/surge-quality/actions/workflows/ci.yml/badge.svg)](https://github.com/SurgeXi/surge-quality/actions/workflows/ci.yml)
-[![license](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![license](https://img.shields.io/badge/license-source--available-blue.svg)](LICENSE)
 [![python](https://img.shields.io/badge/python-3.12-blue.svg)](pyproject.toml)
 
 Handing customer-facing conversations to an AI assistant is only safe if you can
